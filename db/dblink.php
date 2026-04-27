@@ -3,9 +3,9 @@
 session_start();
 error_reporting(0);
 date_default_timezone_set("Africa/Nairobi");
-$dbhost = "";
-$dbname = "";
-$dbuser = "";
+$dbhost = "127.0.0.1";
+$dbname = "anderson_vllsms";
+$dbuser = "root";
 $dbpass = "";
 
 $conn = mysqli_connect($dbhost, $dbuser, $dbpass, $dbname);
