@@ -1,0 +1,22 @@
+﻿# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+error_log
+
+# Environment
+.env
+.env.*
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Uploads (runtime files)
+/uploads/*
+!/uploads/.gitkeep
+
+# macOS metadata
+._*
