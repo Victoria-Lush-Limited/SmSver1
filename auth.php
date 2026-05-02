@@ -10,12 +10,17 @@ $found = mysqli_num_rows($q);
 
 if ($found) {
     $user = mysqli_fetch_assoc($q);
-    if($user['status']=="Suspended"){
-        header("location:login.php?r=User Account Suspended");    
-    }else{
-    $_SESSION['user_id'] = $user['user_id'];
-    header("location:index.php");
+    if ($user['status'] == "Suspended") {
+        header("location:login.php?r=User Account Suspended");
+    } elseif ($user['status'] == "Pending") {
+        $_SESSION['user_id'] = $user['user_id'];
+        header("location:verification.php");
+    } elseif ($user['status'] == "Active") {
+        $_SESSION['user_id'] = $user['user_id'];
+        header("location:index.php");
+    } else {
+        header("location:login.php?r=User Account Inactive");
     }
 } else {
-    header("location:login.php?r=Invalid Mobile Number or Password");
+    header("location:login.php?r=Invalid Username or Password");
 }

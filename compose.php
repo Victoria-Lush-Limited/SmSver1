@@ -77,6 +77,7 @@ $to_date = time();
                                 <div class="field-label">Recipients:</div>
                                 <div class="custom-input-wrapper">
                                     <input type="text" name="recipient" id="recipient" placeholder="Type phone number then press enter ">
+                                    <small>Supported prefixes: +255 (Tanzania), +254 (Kenya), +256 (Uganda).</small>
                                     <div class="custom-input">
                                         <div name="recipient_list" id="recipient_list"></div>
 

@@ -53,14 +53,14 @@ $found = mysqli_num_rows($q);
         $showing_from = 0;
     }
 
-    $showing_to = $start_row + $table_rows
+$showing_to = $start_row + $table_rows;
     ?>
 </table>
 
 <div class="pagination">
     <div class="page-nav">
-        <i class="fas fa-chevron-left fa-s" <?php if ($start_row > 0) { ?> onclick="get_history(<?php echo $previous_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
-        <i class="fas fa-chevron-right fa-s" <?php if ($next_start_row <= $found) { ?> onclick="get_history(<?php echo $next_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
+        <i class="fas fa-chevron-left fa-s" <?php if ($start_row > 0) { ?> onclick="get_groups_modal(<?php echo $previous_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
+        <i class="fas fa-chevron-right fa-s" <?php if ($next_start_row <= $found) { ?> onclick="get_groups_modal(<?php echo $next_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
         <div class="page-records">
             Showing
             <b><?php echo number_format($showing_from); ?> - <?php echo number_format($showing_to); ?> </b>
@@ -72,7 +72,7 @@ $found = mysqli_num_rows($q);
     <ul class="page-rows">
         <li><label>Per Page:</label></li>
         <li>
-            <select name="per_page" id="per_page" onchange="get_history(<?php echo ($start_row + 1); ?>,this.value)">
+            <select name="per_page" id="per_page" onchange="get_groups_modal(<?php echo ($start_row + 1); ?>,this.value)">
                 <option value="10">10 rows</option>
                 <option value="25">25 rows</option>
                 <option value="50">50 rows</option>

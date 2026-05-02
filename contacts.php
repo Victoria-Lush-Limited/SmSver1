@@ -30,7 +30,7 @@ $to_date = time();
     <title><?php echo $app['app_name']; ?></title>
     <link rel="stylesheet" href="css/all.css">
     <link rel="stylesheet" href="css/style.css">
-    <script src="js/script.js"></script>
+    <script src="js/script.js?v=20260501"></script>
 </head>
 
 <body>
@@ -40,6 +40,9 @@ $to_date = time();
             <?php include "menu.php"; ?>
         </div>
         <div class="content-wrapper">
+            <?php if (isset($_GET['r'])) { ?>
+                <div class="message-sent"><?php echo htmlspecialchars($_GET['r']); ?></div>
+            <?php } ?>
             <div class="page-title">Contacts</div>
             <div class="page-header">
                 <ul class="page-menu">
@@ -92,8 +95,19 @@ $to_date = time();
                     </div>
                     <div class="modal-content" id="create_contact_modal_content">
                         <div class="form-field">
-                            <label for=""> Phone Number</label>
-                            <input type="text" name="phone_number" id="phone_number" placeholder="eg. 255742200333">
+                            <label for="contact_phone_region">Country / number type</label>
+                            <select name="contact_phone_region" id="contact_phone_region">
+                                <option value="TZ">Tanzania (+255)</option>
+                                <option value="KE">Kenya (+254)</option>
+                                <option value="UG">Uganda (+256)</option>
+                                <option value="OTHER">Other (full international digits)</option>
+                            </select>
+                            <small>SMS sending supports <strong>Tanzania (+255)</strong>, <strong>Kenya (+254)</strong>, and <strong>Uganda (+256)</strong>.</small>
+                        </div>
+                        <div class="form-field">
+                            <label for="phone_number">Phone number</label>
+                            <input type="text" name="phone_number" id="phone_number" placeholder="0742200333 or 255742200333">
+                            <small>National 0… or 9 digits without code; or full number with country code (Other = international only).</small>
                         </div>
                         <div class="form-field">
                             <label for="">Contact Name</label>
@@ -108,7 +122,7 @@ $to_date = time();
                             <div class="send-button" onclick="save_contact(document.getElementById('start_row').value,document.getElementById('per_page').value)">Save Contact</div>
                         </div>
                         <div class="form-field">
-                            <div class="form-errors" id="form_errors"></div>
+                            <div class="form-errors" id="contact_form_errors"></div>
                         </div>
 
                     </div>
@@ -134,7 +148,7 @@ $to_date = time();
                             <div class="send-button" onclick="save_group()">Save Group</div>
                         </div>
                         <div class="form-field">
-                            <div class="form-errors" id="form_errors"></div>
+                            <div class="form-errors" id="group_form_errors"></div>
                         </div>
 
                     </div>
@@ -157,6 +171,46 @@ $to_date = time();
                     </div>
                 </div>
             </div>
+            <input type="checkbox" id="import_contacts" name="import_contacts">
+            <div id="import_contacts_modal">
+                <div class="modal-wrapper">
+                    <div class="modal-header">
+                        <div class="modal-title">
+                            Import Contacts
+                        </div>
+                        <div class="modal-close">
+                            <label for="import_contacts"><i class="fas fa-times fa-2x"></i></label>
+                        </div>
+                    </div>
+                    <div class="modal-content">
+                        <form id="import_contacts_form" action="import_contacts.php" method="post" enctype="multipart/form-data">
+                            <div class="form-field">
+                                <label for="import_region">Country for numbers in file</label>
+                                <select name="import_region" id="import_region">
+                                    <option value="TZ">Tanzania (+255)</option>
+                                    <option value="KE">Kenya (+254)</option>
+                                    <option value="UG">Uganda (+256)</option>
+                                    <option value="OTHER">Other (full international per row)</option>
+                                </select>
+                                <small>SMS sending supports +255 (TZ), +254 (KE), and +256 (UG).</small>
+                            </div>
+                            <div class="form-field">
+                                <label for="contacts_file">Upload CSV/XLSX file</label>
+                                <input type="file" name="contacts_file" id="contacts_file" accept=".csv,.xlsx,.xls">
+                            </div>
+                            <div class="form-field">
+                                <small>Expected columns: Phone Number, Contact Name, Email</small>
+                            </div>
+                            <div class="form-field">
+                                <div class="send-button" onclick="import_contacts_file()">Import</div>
+                            </div>
+                            <div class="form-field">
+                                <div class="form-errors" id="import_form_errors"></div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
             <div class="page-content" id="page-content">
 
             </div>
@@ -166,7 +220,7 @@ $to_date = time();
     <script>
         get_contacts(1, 10);
 
-        setInputFilter(document.getElementById("phone"), function(value) {
+        setInputFilter(document.getElementById("phone_number"), function(value) {
             return /^-?\d*$/.test(value);
         });
     </script>

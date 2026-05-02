@@ -38,7 +38,7 @@ if (!$mobile_registered && !$username_registered) {
         $sender_id = $app['sender_id'];
         $phone_number = $user_id;
         $message = "Your verification code is: " . $vcode;
-        $credits = ceil(strlen($message / 160));
+        $credits = ceil(strlen($message) / 160);
         $schedule = "None";
         $start_date = $user_date_created;
         $end_date = $start_date;

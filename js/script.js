@@ -271,6 +271,20 @@ function upload_file() {
     }
 }
 
+function download_contacts() {
+    document.getElementById('import_contacts').click();
+}
+
+function import_contacts_file() {
+    var file_name = document.getElementById('contacts_file').value;
+    document.getElementById('import_form_errors').innerHTML = "";
+    if (file_name.length == 0) {
+        document.getElementById('import_form_errors').innerHTML = "<div> - You must select a CSV/XLSX file</div>";
+        return false;
+    }
+    document.getElementById('import_contacts_form').submit();
+}
+
 
 
 function customize_sms() {
@@ -582,15 +596,16 @@ function save_sender(start_row, per_page) {
 function update_contact(start_row, per_page, contact_id) {
     var group_id = document.getElementById('group_id').value;
     var keyword = document.getElementById('keyword').value;
-    var phone_number = document.getElementById('edit_phone_number').value;
+    var region = document.getElementById('edit_phone_region').value;
+    var phone_number = normalize_contact_phone_client(document.getElementById('edit_phone_number').value, region);
     var contact_name = document.getElementById('edit_contact_name').value;
     var email = document.getElementById('edit_email').value;
 
     var errors = 0;
     document.getElementById('edit_form_errors').innerHTML = "";
 
-    if (phone_number.length != 12) {
-        document.getElementById('edit_form_errors').innerHTML += "<div> - You must enter a valid phone number</div>";
+    if (!is_valid_contact_phone_client(phone_number, region)) {
+        document.getElementById('edit_form_errors').innerHTML += "<div> - Enter a valid phone for the selected country.</div>";
         errors += 1;
     }
 
@@ -608,7 +623,7 @@ function update_contact(start_row, per_page, contact_id) {
     }
 
     if (errors == 0) {
-        var phpurl = "update_contact.php?contact_id=" + contact_id + "&group_id=" + group_id + "&phone_number=" + phone_number + "&contact_name=" + contact_name + "&email=" + email;
+        var phpurl = "update_contact.php?contact_id=" + contact_id + "&group_id=" + group_id + "&region=" + encodeURIComponent(region) + "&phone_number=" + encodeURIComponent(phone_number) + "&contact_name=" + encodeURIComponent(contact_name) + "&email=" + encodeURIComponent(email);
 
         var xmlhttp;
         if (window.XMLHttpRequest) {
@@ -620,6 +635,8 @@ function update_contact(start_row, per_page, contact_id) {
             if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
                 if (xmlhttp.responseText == "Duplicate") {
                     document.getElementById('edit_form_errors').innerHTML += "<div> - Contact with this phone number already created</div>";
+                } else if (xmlhttp.responseText.trim() == "Invalid") {
+                    document.getElementById('edit_form_errors').innerHTML += "<div> - Invalid phone number for selected country</div>";
                 } else {
                     var start_row = document.getElementById('start_row').value;
                     var per_page = document.getElementById('per_page').value;
@@ -663,13 +680,17 @@ function bulk_delete_contacts() {
         contact_ids += (contacts[i].split("_")[1]) + ",";
     }
 
+    if (contact_ids.length == 0) {
+        alert("Please select at least one contact to delete.");
+        return false;
+    }
 
     var start_row = document.getElementById('start_row').value;
     var per_page = document.getElementById('per_page').value;
 
     var group_id = document.getElementById('group_id').value;
 
-    var phpurl = "bulk_delete_contacts.php?contact_ids=" + contact_ids;
+    var phpurl = "bulk_delete_contacts.php?contact_ids=" + encodeURIComponent(contact_ids) + "&group_id=" + encodeURIComponent(group_id);
 
     var xmlhttp;
     if (window.XMLHttpRequest) {
@@ -690,10 +711,13 @@ function bulk_delete_contacts() {
 
 
 function delete_contacts(contact_id, group_id) {
+    if (!confirm("Are you sure you want to delete this contact?")) {
+        return false;
+    }
     var start_row = document.getElementById('start_row').value;
     var per_page = document.getElementById('per_page').value;
 
-    var phpurl = "delete_contacts.php?contact_id=" + contact_id + "&group_id=" + group_id;
+    var phpurl = "delete_contacts.php?contact_id=" + encodeURIComponent(contact_id) + "&group_id=" + encodeURIComponent(group_id);
 
     var xmlhttp;
     if (window.XMLHttpRequest) {
@@ -735,16 +759,16 @@ function save_group(start_row, per_page) {
     var group_name = document.getElementById('group_name').value;
 
     var errors = 0;
-    document.getElementById('form_errors').innerHTML = "";
+    document.getElementById('group_form_errors').innerHTML = "";
 
 
     if (group_name.length == 0) {
-        document.getElementById('form_errors').innerHTML += "<div> - You must enter group name</div>";
+        document.getElementById('group_form_errors').innerHTML += "<div> - You must enter group name</div>";
         errors += 1;
     }
 
     if (errors == 0) {
-        var phpurl = "save_group.php?group_name=" + group_name;
+        var phpurl = "save_group.php?group_name=" + encodeURIComponent(group_name);
         var xmlhttp;
         if (window.XMLHttpRequest) {
             xmlhttp = new XMLHttpRequest();
@@ -753,48 +777,88 @@ function save_group(start_row, per_page) {
         }
         xmlhttp.onreadystatechange = function () {
             if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-                var start_row = document.getElementById('start_row').value;
-                var per_page = document.getElementById('per_page').value;
+                if (xmlhttp.responseText == "Duplicate") {
+                    document.getElementById('group_form_errors').innerHTML = "<div> - Group already exists</div>";
+                    return false;
+                }
+                if (xmlhttp.responseText == "Error") {
+                    document.getElementById('group_form_errors').innerHTML = "<div> - Failed to save group, please retry</div>";
+                    return false;
+                }
                 get_groups_list();
+                get_contacts(1, document.getElementById('per_page').value);
+                document.getElementById('group_name').value = "";
+                document.getElementById('create_group').click();
             }
         }
         xmlhttp.open("GET", phpurl, false);
         xmlhttp.send();
-        document.getElementById('group_name').value = "";
-        document.getElementById('create_group').click();
     }
 }
 
 
+function normalize_contact_phone_client(phoneDigits, region) {
+    var r = (region || "TZ").toUpperCase();
+    phoneDigits = String(phoneDigits).replace(/\D/g, "");
+    if (phoneDigits.indexOf("00") === 0) {
+        phoneDigits = phoneDigits.substring(2);
+    }
+    if (r === "OTHER") {
+        return phoneDigits;
+    }
+    var cc = (r === "KE") ? "254" : (r === "UG") ? "256" : "255";
+    if (phoneDigits.length >= 12 && phoneDigits.indexOf(cc) === 0) {
+        return phoneDigits;
+    }
+    if (phoneDigits.length == 10 && phoneDigits.charAt(0) == "0") {
+        return cc + phoneDigits.substring(1);
+    }
+    if (phoneDigits.length == 9) {
+        return cc + phoneDigits;
+    }
+    return phoneDigits;
+}
+
+function is_valid_contact_phone_client(digits, region) {
+    var r = (region || "TZ").toUpperCase();
+    if (r === "OTHER") {
+        return digits.length >= 10 && digits.length <= 15;
+    }
+    var cc = (r === "KE") ? "254" : (r === "UG") ? "256" : "255";
+    return digits.length === 12 && digits.indexOf(cc) === 0;
+}
+
 function save_contact(start_row, per_page) {
     var group_id = document.getElementById('group_id').value;
     var keyword = document.getElementById('keyword').value;
+    var region = document.getElementById('contact_phone_region').value;
     var phone_number = document.getElementById('phone_number').value;
     var contact_name = document.getElementById('contact_name').value;
     var email = document.getElementById('email').value;
 
     var errors = 0;
-    document.getElementById('form_errors').innerHTML = "";
+    document.getElementById('contact_form_errors').innerHTML = "";
+    phone_number = normalize_contact_phone_client(phone_number, region);
 
-    if (phone_number.length != 12) {
-        document.getElementById('form_errors').innerHTML += "<div> - You must enter a valid phone number</div>";
+    if (!is_valid_contact_phone_client(phone_number, region)) {
+        document.getElementById('contact_form_errors').innerHTML += "<div> - Enter a valid phone for the selected country (national 0… / 9 digits, or full international).</div>";
         errors += 1;
     }
 
     if (contact_name.length == 0) {
-        document.getElementById('form_errors').innerHTML += "<div> - You must enter contact name</div>";
+        document.getElementById('contact_form_errors').innerHTML += "<div> - You must enter contact name</div>";
         errors += 1;
     }
 
     if (email.length != 0) {
         var mailformat = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
         if (!email.match(mailformat)) {
-            document.getElementById('form_errors').innerHTML += "<div> - You must enter a valid email address</div>";
+            document.getElementById('contact_form_errors').innerHTML += "<div> - You must enter a valid email address</div>";
             errors += 1;
         }
     }
     if (errors == 0) {
-        var phpurl = "save_contact.php?group_id=" + group_id + "&phone_number=" + phone_number + "&contact_name=" + contact_name + "&email=" + email;
+        var phpurl = "save_contact.php?group_id=" + encodeURIComponent(group_id) + "&region=" + encodeURIComponent(region) + "&phone_number=" + encodeURIComponent(phone_number) + "&contact_name=" + encodeURIComponent(contact_name) + "&email=" + encodeURIComponent(email);
 
         var xmlhttp;
         if (window.XMLHttpRequest) {
@@ -804,15 +868,27 @@ function save_contact(start_row, per_page) {
         }
         xmlhttp.onreadystatechange = function () {
             if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-                var start_row = document.getElementById('start_row').value;
-                var per_page = document.getElementById('per_page').value;
+                if (xmlhttp.responseText == "Duplicate") {
+                    document.getElementById('contact_form_errors').innerHTML = "<div> - Contact already exists</div>";
+                    return false;
+                }
+                if (xmlhttp.responseText == "Invalid") {
+                    document.getElementById('contact_form_errors').innerHTML = "<div> - Invalid phone number format</div>";
+                    return false;
+                }
+                if (xmlhttp.responseText == "Error") {
+                    document.getElementById('contact_form_errors').innerHTML = "<div> - Failed to save contact, please retry</div>";
+                    return false;
+                }
                 get_contacts(1, per_page);
+                document.getElementById('phone_number').value = "";
+                document.getElementById('contact_name').value = "";
+                document.getElementById('email').value = "";
+                document.getElementById('create_contact').click();
             }
         }
         xmlhttp.open("GET", phpurl, false);
         xmlhttp.send();
-
-        document.getElementById('create_contact').click();
     }
 }
 
@@ -829,10 +905,10 @@ function send_sms() {
     var antispam = document.getElementById('antispam').checked;
 
 
-    var total_recipients = document.getElementById('total_recipients').innerHTML;
+    var total_recipients = +document.getElementById('total_recipients').innerHTML;
     var errors = 0;
     document.getElementById('compose_form_errors').innerHTML = "";
-    if (total_recipients == 0) {
+    if (total_recipients <= 0) {
         document.getElementById('compose_form_errors').innerHTML += "<div> - You must enter recipients</div>";
         errors += 1;
     }
@@ -872,7 +948,7 @@ function count_message() {
 
 
 function parse_message(message) {
-    document.getElementById('message').innerHTML = parseHTML(message);
+    document.getElementById('message').value = parseHTML(message);
 
 }
 
@@ -954,8 +1030,8 @@ function insert_templates() {
     }
     xmlhttp.onreadystatechange = function () {
         if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            var message = document.getElementById('message').innerHTML + xmlhttp.responseText;
-            document.getElementById('message').innerHTML = message;
+            var message = document.getElementById('message').value + xmlhttp.responseText;
+            document.getElementById('message').value = message;
             count_message();
             document.getElementById('insert_templates').click();
         }
@@ -1171,7 +1247,7 @@ function get_contacts(start_row, per_page) {
     var group_id = document.getElementById('group_id').value;
     var keyword = document.getElementById('keyword').value;
 
-    var phpurl = "get_contacts.php?start_row=" + start_row + "&per_page=" + per_page + "&group_id=" + group_id + "&keyword=" + keyword;
+    var phpurl = "get_contacts.php?start_row=" + start_row + "&per_page=" + per_page + "&group_id=" + encodeURIComponent(group_id) + "&keyword=" + encodeURIComponent(keyword);
 
     var xmlhttp;
     if (window.XMLHttpRequest) {

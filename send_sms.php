@@ -1,5 +1,6 @@
 <?php
 include "db/dblink.php";
+include "phone_lib.php";
 
 
 $q = mysqli_query($conn, "SELECT * FROM users WHERE user_id='" . $_SESSION['user_id'] . "' AND status='Active'");
@@ -24,7 +25,7 @@ foreach ($contacts as $contact) {
 
 foreach ($groups as $group_id) {
     if (!empty($group_id)) {
-        $q = mysqli_query($conn, "SELECT C.phone_number FROM group_contacts G,contacts C WHERE G.contact_id=C.contact_id AND G.group_id='" . $group_id . "'");
+        $q = mysqli_query($conn, "SELECT C.phone_number FROM group_contacts G,contacts C WHERE G.contact_id=C.contact_id AND G.group_id='" . $group_id . "' AND C.user_id='" . $_SESSION['user_id'] . "'");
         while ($group_contact = mysqli_fetch_assoc($q)) {
             $recipients .= $group_contact['phone_number'] . ",";
         }
@@ -32,7 +33,24 @@ foreach ($groups as $group_id) {
 }
 
 $recipient_list = explode(",", $recipients);
-$total_recipients = count($recipient_list) - 1;
+$unique_recipients = array();
+foreach ($recipient_list as $recipient) {
+    $recipient = normalize_recipient_msisdn($recipient);
+    if ($recipient !== "" && is_valid_outgoing_msisdn($recipient)) {
+        $unique_recipients[$recipient] = true;
+    }
+}
+$recipient_list_all = array_keys($unique_recipients);
+$recipient_list = array();
+$skipped_unsupported = 0;
+foreach ($recipient_list_all as $r) {
+    if (preg_match('/^(255|254|256)/', $r)) {
+        $recipient_list[] = $r;
+    } elseif ($r !== "") {
+        $skipped_unsupported++;
+    }
+}
+$total_recipients = count($recipient_list);
 
 
 $message = mysqli_real_escape_string($conn, $_POST['message']);
@@ -55,8 +73,59 @@ $send_minute = mysqli_real_escape_string($conn, $_POST['send_minute']);
 
 $now = time();
 
+$recipient_list_all_count = count($recipient_list_all);
+$sent_ok_msg = $skipped_unsupported > 0
+    ? 'Sent. Skipped ' . $skipped_unsupported . ' number(s) with unsupported country code.'
+    : 'Sent';
+$no_recipients_msg = ($recipient_list_all_count > 0)
+    ? 'No supported recipients found. Use numbers with country code 255 (Tanzania), 254 (Kenya), or 256 (Uganda).'
+    : 'No valid recipients found';
+
+function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $consumed, $now)
+{
+    mysqli_begin_transaction($conn);
+    try {
+        $attempts = 0;
+        $queued = 0;
+        for ($i = 0; $i < count($recipient_list); $i++) {
+            $phone_number = trim($recipient_list[$i]);
+            if ($phone_number === "") {
+                continue;
+            }
+
+            $q = mysqli_query($conn, "INSERT INTO outgoing(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id,smsc_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "','Queued for provider')");
+            if (!$q) {
+                throw new Exception(mysqli_error($conn));
+            }
+            $queued++;
+        }
+
+        if ($queued === 0) {
+            throw new Exception("No valid recipients were queued");
+        }
+
+        if ($consumed > 0) {
+            $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $user_id . "','" . $consumed . "','" . $now . "')");
+            if (!$q) {
+                throw new Exception(mysqli_error($conn));
+            }
+        }
+
+        mysqli_commit($conn);
+        return true;
+    } catch (Exception $e) {
+        mysqli_rollback($conn);
+        error_log("send_sms queue failure for user_id=" . $user_id . ": " . $e->getMessage());
+        return false;
+    }
+}
+
 switch ($schedule) {
     case "None":
+        if ($total_recipients <= 0) {
+            header("location:compose.php?r=" . urlencode($no_recipients_msg));
+            exit;
+        }
 
         $consumed = $credits * $total_recipients;
 
@@ -66,15 +135,11 @@ switch ($schedule) {
         $bal = mysqli_fetch_assoc($q);
         $balance = $bal['balance'];
         if ($consumed <= $balance) {
-            for ($i = 0; $i < (count($recipient_list) - 1); $i++) {
-                $phone_number = $recipient_list[$i];
-                $attempts = 0;
-
-                $q = mysqli_query($conn, "INSERT INTO outgoing(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "')");
+            if (queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $consumed, $now)) {
+                header("location:compose.php?r=" . urlencode($sent_ok_msg));
+            } else {
+                header("location:compose.php?r=Failed to queue message(s). Please retry.");
             }
-
-            $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $user_id . "','" . $consumed . "','" . $now . "')");
-            header("location:compose.php?r=Sent");
         } else {
             header("location:compose.php?r=Insufficient Balance");
         }
@@ -82,6 +147,10 @@ switch ($schedule) {
         break;
 
     case "Daily":
+        if ($total_recipients <= 0) {
+            header("location:compose.php?r=" . urlencode($no_recipients_msg));
+            exit;
+        }
 
         $consumed = 0;
 
@@ -99,16 +168,14 @@ switch ($schedule) {
             while ($next_date <= $end_date) {
                 $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
            
-                for ($i = 0; $i < (count($recipient_list) - 1); $i++) {
-                    $phone_number = $recipient_list[$i];
-                    $attempts = 0;
-
-                    $q = mysqli_query($conn, "INSERT INTO outgoing(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "')");
+                if (!queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, 0, $now)) {
+                    header("location:compose.php?r=Failed to queue message(s). Please retry.");
+                    exit;
                 }
                 $next_date =  strtotime("+1 days", $next_date);
             }
             $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $user_id . "','" . $consumed . "','" . $now . "')");
-            header("location:compose.php?r=Sent");
+            header("location:compose.php?r=" . urlencode($sent_ok_msg));
         } else {
             header("location:compose.php?r=Insufficient Balance");
         }
@@ -116,6 +183,10 @@ switch ($schedule) {
 
 
     case "Weekly":
+        if ($total_recipients <= 0) {
+            header("location:compose.php?r=" . urlencode($no_recipients_msg));
+            exit;
+        }
 
         $consumed = 0;
 
@@ -133,16 +204,14 @@ switch ($schedule) {
             while ($next_date <= $end_date) {
                 $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
            
-                for ($i = 0; $i < (count($recipient_list) - 1); $i++) {
-                    $phone_number = $recipient_list[$i];
-                    $attempts = 0;
-
-                    $q = mysqli_query($conn, "INSERT INTO outgoing(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "')");
+                if (!queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, 0, $now)) {
+                    header("location:compose.php?r=Failed to queue message(s). Please retry.");
+                    exit;
                 }
                 $next_date =  strtotime("+1 weeks", $next_date);
             }
             $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $user_id . "','" . $consumed . "','" . $now . "')");
-            header("location:compose.php?r=Sent");
+            header("location:compose.php?r=" . urlencode($sent_ok_msg));
         } else {
             header("location:compose.php?r=Insufficient Balance");
         }
@@ -150,6 +219,10 @@ switch ($schedule) {
         break;
 
     case "Monthly":
+        if ($total_recipients <= 0) {
+            header("location:compose.php?r=" . urlencode($no_recipients_msg));
+            exit;
+        }
 
         $consumed = 0;
 
@@ -167,16 +240,14 @@ switch ($schedule) {
             while ($next_date <= $end_date) {
                 $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
            
-                for ($i = 0; $i < (count($recipient_list) - 1); $i++) {
-                    $phone_number = $recipient_list[$i];
-                    $attempts = 0;
-
-                    $q = mysqli_query($conn, "INSERT INTO outgoing(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "')");
+                if (!queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, 0, $now)) {
+                    header("location:compose.php?r=Failed to queue message(s). Please retry.");
+                    exit;
                 }
                 $next_date =  strtotime("+1 months", $next_date);
             }
             $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $user_id . "','" . $consumed . "','" . $now . "')");
-            header("location:compose.php?r=Sent");
+            header("location:compose.php?r=" . urlencode($sent_ok_msg));
         } else {
             header("location:compose.php?r=Insufficient Balance");
         }

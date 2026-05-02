@@ -15,7 +15,7 @@ if ($found) {
     $sender_id = $app['sender_id'];
     $phone_number = $user['user_id'];
     $message = "Your verification code is: " . $vcode;
-    $credits = ceil(strlen($message / 160));
+    $credits = ceil(strlen($message) / 160);
     $schedule = "None";
     $start_date = time();
     $end_date = $start_date;

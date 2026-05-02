@@ -47,7 +47,7 @@ $to_date = time();
                 </ul>
                 <div class="page-options">
                     <ul>
-                        <li><input type="text" id="keyword" name="keyword" placeholder="Search Keyword" onchange="get_contacts(1,document.getElementById('per_page').value)"><i class="fas fa-search fa-s" onclick="get_templates(1,document.getElementById('per_page').value)"></i></li>
+                        <li><input type="text" id="keyword" name="keyword" placeholder="Search Keyword" onchange="get_templates(1,document.getElementById('per_page').value)"><i class="fas fa-search fa-s" onclick="get_templates(1,document.getElementById('per_page').value)"></i></li>
                     </ul>
                 </div>
             </div>

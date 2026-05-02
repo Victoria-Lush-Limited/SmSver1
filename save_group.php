@@ -12,8 +12,20 @@ $user = mysqli_fetch_assoc($q);
 $group_name = mysqli_real_escape_string($conn, $_GET['group_name']);
 $date_created = time();
 
-$q = mysqli_query($conn, "SELECT * FROM groups WHERE group_name='".$group_name."' AND user_id='".$_SESSION['user_id']."'");
+if (empty(trim($group_name))) {
+    echo "Empty";
+    exit;
+}
+
+$q = mysqli_query($conn, "SELECT * FROM groups WHERE group_name='" . $group_name . "' AND user_id='" . $_SESSION['user_id'] . "'");
 $found = mysqli_num_rows($q);
 if (!$found) {
-    $q = mysqli_query($conn, "INSERT INTO groups(group_name,user_id,date_created) VALUES('" . $group_name . "','".$_SESSION['user_id']."','".$date_created."')");
+    $q = mysqli_query($conn, "INSERT INTO groups(group_name,user_id,date_created) VALUES('" . $group_name . "','" . $_SESSION['user_id'] . "','" . $date_created . "')");
+    if ($q) {
+        echo "Saved";
+    } else {
+        echo "Error";
+    }
+} else {
+    echo "Duplicate";
 }

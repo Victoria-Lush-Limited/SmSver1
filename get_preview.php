@@ -14,7 +14,7 @@ $to_date = strtotime("+1 days", strtotime(mysqli_real_escape_string($conn, $_GET
 $keyword = mysqli_real_escape_string($conn, $_GET['keyword']);
 
 $now = time();
-$q = mysqli_query($conn, "SELECT * FROM custom_sms WHERE user_id='" . $_SESSION['user_id'] . "' AND date_created > '" . $from_date . "' AND date_created <='" . $to_date . "' AND (message LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || sender_id LIKE '%" . $keyword . "%')");
+$q = mysqli_query($conn, "SELECT * FROM custom_sms WHERE user_id='" . $_SESSION['user_id'] . "' AND date_created >= '" . $from_date . "' AND date_created <='" . $to_date . "' AND (message LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || sender_id LIKE '%" . $keyword . "%')");
 
 
 $found = mysqli_num_rows($q);
@@ -30,7 +30,7 @@ $found = mysqli_num_rows($q);
         <td>Status</td>
     </tr>
     <?php
-    $q = mysqli_query($conn, "SELECT * FROM custom_sms WHERE user_id='" . $_SESSION['user_id'] . "' AND date_created > '" . $from_date . "' AND date_created <='" . $to_date . "'  AND (message LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || sender_id LIKE '%" . $keyword . "%') ORDER BY date_created ASC LIMIT " . $start_row . "," . $per_page);
+    $q = mysqli_query($conn, "SELECT * FROM custom_sms WHERE user_id='" . $_SESSION['user_id'] . "' AND date_created >= '" . $from_date . "' AND date_created <='" . $to_date . "'  AND (message LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || sender_id LIKE '%" . $keyword . "%') ORDER BY date_created ASC LIMIT " . $start_row . "," . $per_page);
 
     if ($found) {
 
@@ -64,8 +64,8 @@ $found = mysqli_num_rows($q);
 
 <div class="pagination">
     <div class="page-nav">
-        <i class="fas fa-chevron-left fa-s" <?php if ($start_row > 0) { ?> onclick="get_scheduled(<?php echo $previous_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
-        <i class="fas fa-chevron-right fa-s" <?php if ($next_start_row <= $found) { ?> onclick="get_scheduled(<?php echo $next_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
+        <i class="fas fa-chevron-left fa-s" <?php if ($start_row > 0) { ?> onclick="get_preview(<?php echo $previous_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
+        <i class="fas fa-chevron-right fa-s" <?php if ($next_start_row <= $found) { ?> onclick="get_preview(<?php echo $next_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
         <div class="page-records">
             Showing
             <b><?php echo number_format($showing_from); ?> - <?php echo number_format($showing_to); ?> </b>

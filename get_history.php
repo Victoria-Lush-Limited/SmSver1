@@ -13,8 +13,7 @@ $to_date = strtotime("+1 days", strtotime(mysqli_real_escape_string($conn, $_GET
 
 $keyword = mysqli_real_escape_string($conn, $_GET['keyword']);
 
-$now = time();
-$q = mysqli_query($conn, "SELECT * FROM outgoing WHERE user_id='" . $_SESSION['user_id'] . "' AND date_created > '" . $from_date . "' AND date_created <='" . $to_date . "' AND date_created<'" . $now . "' AND (message LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || sender_id LIKE '%" . $keyword . "%')");
+$q = mysqli_query($conn, "SELECT * FROM outgoing WHERE user_id='" . $_SESSION['user_id'] . "' AND date_created >= '" . $from_date . "' AND date_created <='" . $to_date . "' AND (message LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || sender_id LIKE '%" . $keyword . "%')");
 
 
 $found = mysqli_num_rows($q);
@@ -28,9 +27,10 @@ $found = mysqli_num_rows($q);
         <td>Message</td>
         <td>Date Sent</td>
         <td>Status</td>
+        <td>Provider Response</td>
     </tr>
     <?php
-    $q = mysqli_query($conn, "SELECT * FROM outgoing WHERE user_id='" . $_SESSION['user_id'] . "' AND date_created > '" . $from_date . "' AND date_created <='" . $to_date . "' AND date_created<'" . $now . "' AND (message LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || sender_id LIKE '%" . $keyword . "%') ORDER BY date_created ASC LIMIT " . $start_row . "," . $per_page);
+    $q = mysqli_query($conn, "SELECT * FROM outgoing WHERE user_id='" . $_SESSION['user_id'] . "' AND date_created >= '" . $from_date . "' AND date_created <='" . $to_date . "' AND (message LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || sender_id LIKE '%" . $keyword . "%') ORDER BY date_created ASC LIMIT " . $start_row . "," . $per_page);
 
     if ($found) {
 
@@ -44,6 +44,12 @@ $found = mysqli_num_rows($q);
                 <td><?php echo $sms['message']; ?></td>
                 <td><?php echo date("d-M-Y H:i", $sms['date_created']); ?></td>
                 <td><?php echo $sms['sms_status']; ?></td>
+                <td>
+                    <?php
+                    $provider_response = ($sms['sms_status'] === "Sent") ? "Submitted" : "Fail";
+                    echo htmlspecialchars($provider_response);
+                    ?>
+                </td>
             </tr>
     <?php
         }

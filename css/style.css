@@ -530,6 +530,10 @@ td {
     display: none;
 }
 
+#import_contacts {
+    display: none;
+}
+
 
 
 
@@ -611,6 +615,12 @@ td {
     min-height: 100%;
 }
 
+#import_contacts_modal {
+    display: none;
+    min-width: 100%;
+    min-height: 100%;
+}
+
 
 #create_sender_modal .modal-wrapper{
     max-width:50%;
@@ -647,6 +657,10 @@ td {
 
 
 #create_group_modal .modal-wrapper{
+    max-width:50%;
+}
+
+#import_contacts_modal .modal-wrapper{
     max-width:50%;
 }
 
@@ -687,6 +701,10 @@ td {
 
 
 #create_group_modal .modal-content{
+    padding: 0px 20px;
+}
+
+#import_contacts_modal .modal-content{
     padding: 0px 20px;
 }
 
@@ -771,6 +789,16 @@ td {
 
 
 #create_group:checked~#create_group_modal {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 40%);
+}
+
+#import_contacts:checked~#import_contacts_modal {
     display: block;
     width: 100%;
     height: 100%;
