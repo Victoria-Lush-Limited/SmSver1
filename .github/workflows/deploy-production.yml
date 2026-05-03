@@ -29,7 +29,15 @@ jobs:
           REMOTE_PATH: /var/www/public_html/victorialush/sms/
         run: |
           set -euo pipefail
-          test -n "${SSH_HOST:-}" && test -n "${SSH_USER:-}" && test -n "${SSH_PRIVATE_KEY:-}"
+          if [ -z "${SSH_HOST:-}" ] || [ -z "${SSH_USER:-}" ] || [ -z "${SSH_PRIVATE_KEY:-}" ]; then
+            echo "Missing GitHub Actions secrets."
+            echo "Required: SSH_HOST, SSH_USER, and either SSH_PRIVATE_KEY or SMSVER1 (private key)."
+            echo "Optional: SSH_PORT (defaults to 22)."
+            echo "SSH_HOST length: ${#SSH_HOST}"
+            echo "SSH_USER length: ${#SSH_USER}"
+            echo "SSH_PRIVATE_KEY length: ${#SSH_PRIVATE_KEY}"
+            exit 1
+          fi
 
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
