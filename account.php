@@ -76,7 +76,7 @@ $to_date = time();
                                 <input type="password" name="confirm_password" id="confirm_password">
                             </div>
                             <div class="form-field">
-                                <div class="send-button" onclick="change_password()">Change Password</div>
+                                <div class="send-button" onclick="change_password()"><i class="fas fa-key"></i>Change Password</div>
                             </div>
                             <div class="form-field">
                                 <div class="form-errors" id="form_errors"></div>

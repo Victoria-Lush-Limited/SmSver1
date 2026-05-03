@@ -72,7 +72,7 @@ $to_date = time();
                             <textarea name="message" id="message"></textarea>
                         </div>
                         <div class="form-field">
-                            <div class="send-button" onclick="save_template(document.getElementById('start_row').value,document.getElementById('per_page').value)">Save Template</div>
+                            <div class="send-button" onclick="save_template(document.getElementById('start_row').value,document.getElementById('per_page').value)"><i class="fas fa-save"></i>Save Template</div>
                         </div>
                         <div class="form-field">
                             <div class="form-errors" id="form_errors"></div>

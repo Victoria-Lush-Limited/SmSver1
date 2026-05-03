@@ -112,7 +112,7 @@ $order = mysqli_fetch_assoc($q);
                     </div>
                 </div>
                 <div class="form-field">
-                    <input class="send-button" type="button" value="Confirm Payment" onclick="document.location.href='confirm_payment.php?order_id=<?php echo $order['order_id']; ?>'">
+                    <button type="button" class="send-button" onclick="document.location.href='confirm_payment.php?order_id=<?php echo $order['order_id']; ?>'"><i class="fas fa-check"></i>Confirm Payment</button>
                 </div>
 
             </div>

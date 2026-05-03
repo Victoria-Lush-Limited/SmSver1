@@ -36,7 +36,7 @@
                     <label class="cost-box">Total Cost:<span id="total_cost"></span></label>
                 </div>
                 <div class="form-field">
-                    <div class="send-button" onclick="place_order()">Buy Credits</div>
+                    <div class="send-button" onclick="place_order()"><i class="fas fa-shopping-cart"></i>Buy Credits</div>
                 </div>
                 <div class="form-field">
                     <div class="form-errors" id="form_errors"></div>

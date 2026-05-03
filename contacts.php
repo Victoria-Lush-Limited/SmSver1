@@ -119,7 +119,7 @@ $to_date = time();
                         </div>
 
                         <div class="form-field">
-                            <div class="send-button" onclick="save_contact(document.getElementById('start_row').value,document.getElementById('per_page').value)">Save Contact</div>
+                            <div class="send-button" onclick="save_contact(document.getElementById('start_row').value,document.getElementById('per_page').value)"><i class="fas fa-save"></i>Save Contact</div>
                         </div>
                         <div class="form-field">
                             <div class="form-errors" id="contact_form_errors"></div>
@@ -145,7 +145,7 @@ $to_date = time();
                             <input type="text" name="group_name" id="group_name">
                         </div>
                         <div class="form-field">
-                            <div class="send-button" onclick="save_group()">Save Group</div>
+                            <div class="send-button" onclick="save_group()"><i class="fas fa-users"></i>Save Group</div>
                         </div>
                         <div class="form-field">
                             <div class="form-errors" id="group_form_errors"></div>
@@ -202,7 +202,7 @@ $to_date = time();
                                 <small>Expected columns: Phone Number, Contact Name, Email</small>
                             </div>
                             <div class="form-field">
-                                <div class="send-button" onclick="import_contacts_file()">Import</div>
+                                <div class="send-button" onclick="import_contacts_file()"><i class="fas fa-file-import"></i>Import</div>
                             </div>
                             <div class="form-field">
                                 <div class="form-errors" id="import_form_errors"></div>

@@ -14,7 +14,7 @@ $template = mysqli_fetch_assoc($q);
         <textarea name="edit_message" id="edit_message"><?php echo $template['message'];?></textarea>
     </div>
     <div class="form-field">
-        <div class="send-button" onclick="update_template(document.getElementById('start_row').value,document.getElementById('per_page').value,'<?php echo $template['template_id'];?>')">Save Changes</div>
+        <div class="send-button" onclick="update_template(document.getElementById('start_row').value,document.getElementById('per_page').value,'<?php echo $template['template_id'];?>')"><i class="fas fa-save"></i>Save Changes</div>
     </div>
     <div class="form-field">
         <div class="edit_form-errors" id="edit_form_errors"></div>

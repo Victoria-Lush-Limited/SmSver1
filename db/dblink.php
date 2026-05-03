@@ -27,11 +27,6 @@ $dbpass = vll_env("VLL_DB_PASS", "StrongPass123!");
 
 $conn = @mysqli_connect($dbhost, $dbuser, $dbpass, $dbname);
 
-// Check connection
-if (mysqli_connect_errno()) {
-    echo "Failed to connect to MySQL: " . mysqli_connect_error();
-}
-
 $app = array("app_name" => "Victoria Lush SMS");
 if ($conn) {
     $q = mysqli_query($conn, "SELECT * FROM app LIMIT 1");
