@@ -1,0 +1,49 @@
+name: Deploy SMS (SmSver1) to production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-sms-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install rsync + ssh client
+        run: sudo apt-get update && sudo apt-get install -y rsync openssh-client
+
+      - name: Deploy via rsync + reload Apache
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          REMOTE_PATH: /var/www/public_html/victorialush/sms/
+        run: |
+          set -euo pipefail
+          test -n "${SSH_HOST:-}" && test -n "${SSH_USER:-}" && test -n "${SSH_PRIVATE_KEY:-}"
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          PORT="${SSH_PORT:-22}"
+          RSYNC_RSH="ssh -i ~/.ssh/deploy_key -p ${PORT} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+
+          rsync -az --delete \
+            --exclude '.git/' \
+            --exclude 'db/dblink.php' \
+            --exclude 'uploads/' \
+            -e "$RSYNC_RSH" \
+            ./ "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}"
+
+          ssh -i ~/.ssh/deploy_key -p "${PORT}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
+            "${SSH_USER}@${SSH_HOST}" "systemctl reload apache2"
