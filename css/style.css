@@ -1263,6 +1263,25 @@ td {
 .dash-action-btn i {
     color: var(--white-color);
 }
+.dash-action-btn--neutral {
+    background: #3a3a3a;
+}
+.dash-action-btn--neutral:hover {
+    filter: brightness(1.08);
+}
+.dash-card-link {
+    color: inherit;
+    text-decoration: none;
+}
+.dashboard-section {
+    margin-top: 28px;
+}
+.dashboard-section-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--black-color);
+    margin-bottom: 12px;
+}
 
 /* Compose: supported country codes */
 .supported-prefixes-banner {
