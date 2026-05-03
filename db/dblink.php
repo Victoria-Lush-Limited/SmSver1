@@ -3,12 +3,13 @@
 session_start();
 error_reporting(0);
 date_default_timezone_set("Africa/Nairobi");
+mysqli_report(MYSQLI_REPORT_OFF);
 $dbhost = "127.0.0.1";
 $dbname = "anderson_vllsms";
-$dbuser = "root";
-$dbpass = "";
+$dbuser = "vll_sms_user";
+$dbpass = "StrongPass123!";
 
-$conn = mysqli_connect($dbhost, $dbuser, $dbpass, $dbname);
+$conn = @mysqli_connect($dbhost, $dbuser, $dbpass, $dbname);
 
 // Check connection
 if (mysqli_connect_errno()) {
