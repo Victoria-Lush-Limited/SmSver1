@@ -26,6 +26,9 @@ $dbuser = vll_env("VLL_DB_USER", "vll_sms_user");
 $dbpass = vll_env("VLL_DB_PASS", "StrongPass123!");
 
 $conn = @mysqli_connect($dbhost, $dbuser, $dbpass, $dbname);
+if ($conn) {
+    @mysqli_set_charset($conn, "utf8mb4");
+}
 
 $app = array("app_name" => "Victoria Lush SMS");
 if ($conn) {

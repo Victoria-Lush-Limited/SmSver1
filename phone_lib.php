@@ -132,7 +132,7 @@ function is_valid_outgoing_msisdn($digits)
 }
 
 /**
- * FastHub bulk route used here delivers SMS to Tanzanian mobiles only (+255, 12-digit MSISDN).
+ * FastHub bulk route used here delivers SMS to Tanzanian mobiles only (255…, 12-digit MSISDN).
  */
 function phone_is_fasthub_tanzania_msisdn($digits)
 {

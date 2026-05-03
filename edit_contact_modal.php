@@ -20,9 +20,9 @@ if ($len === 12 && strpos($pn, '254') === 0) {
     <div class="form-field">
         <label for="edit_phone_region">Country / number type</label>
         <select name="edit_phone_region" id="edit_phone_region">
-            <option value="TZ" <?php echo $defRegion === 'TZ' ? 'selected' : ''; ?>>Tanzania (+255)</option>
-            <option value="KE" <?php echo $defRegion === 'KE' ? 'selected' : ''; ?>>Kenya (+254)</option>
-            <option value="UG" <?php echo $defRegion === 'UG' ? 'selected' : ''; ?>>Uganda (+256)</option>
+            <option value="TZ" <?php echo $defRegion === 'TZ' ? 'selected' : ''; ?>>Tanzania (255)</option>
+            <option value="KE" <?php echo $defRegion === 'KE' ? 'selected' : ''; ?>>Kenya (254)</option>
+            <option value="UG" <?php echo $defRegion === 'UG' ? 'selected' : ''; ?>>Uganda (256)</option>
             <option value="OTHER" <?php echo $defRegion === 'OTHER' ? 'selected' : ''; ?>>Other (full international)</option>
         </select>
     </div>

@@ -1,50 +1,104 @@
 <?php
 include "db/dblink.php";
+include_once "outgoing_queue_lib.php";
 
+$uid = mysqli_real_escape_string($conn, $_SESSION['user_id']);
 
-$q = mysqli_query($conn, "SELECT * FROM users WHERE user_id='" . $_SESSION['user_id'] . "'");
+$q = mysqli_query($conn, "SELECT * FROM users WHERE user_id='" . $uid . "'");
 $found = mysqli_num_rows($q);
 if (!$found) {
     header("location:signout.php");
+    exit;
 }
 
 $user = mysqli_fetch_assoc($q);
 
-$q = mysqli_query($conn, "SELECT SUM(credits) AS credits FROM custom_sms WHERE user_id='" . $_SESSION['user_id'] . "'");
+$q = mysqli_query($conn, "SELECT SUM(credits) AS credits FROM custom_sms WHERE user_id='" . $uid . "'");
 $required = mysqli_fetch_assoc($q);
-$consumed=$required['credits'];
+$consumed = (int) ($required["credits"] ?? 0);
 
-$q = mysqli_query($conn, "SELECT (SUM(allocated)-SUM(consumed)) AS balance FROM transactions WHERE user_id='" . $_SESSION['user_id'] . "'");
+$q = mysqli_query($conn, "SELECT (SUM(allocated)-SUM(consumed)) AS balance FROM transactions WHERE user_id='" . $uid . "'");
 $bal = mysqli_fetch_assoc($q);
-$balance = $bal['balance'];
+$balance = (float) ($bal["balance"] ?? 0);
 
-
-
-if ($consumed <= $balance) {
-    $now=time();
-    $qc=mysqli_query($conn,"SELECT * FROM custom_sms WHERE user_id='".$_SESSION['user_id']."'");
-    while($custom=mysqli_fetch_assoc($qc)){
-        $phone_number= str_replace(" ","",$custom['phone_number']);
-        $sender_id=$custom['sender_id'];
-        $message=mysqli_real_escape_string($conn,$custom['message']);
-        $credits=$custom['credits'];
-        $schedule=$custom['schedule'];
-        $start_date=$custom['start_date'];
-        $end_date=$custom['end_date'];
-        $date_created=$custom['date_created'];
-        $attempts=$custom['attempts'];
-        $sms_status=$custom['sms_status'];
-        $user_id=$custom['user_id'];
-        $smsc_id="";
-        
-        
-        $q = mysqli_query($conn, "INSERT INTO outgoing(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id,smsc_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "','".$smsc_id."')");
-        
+if ($consumed <= $balance && $consumed > 0) {
+    $now = time();
+    $chunk = vll_send_insert_chunk_size();
+    $lockToken = "vllsmscust_" . md5($uid);
+    $gotLock = false;
+    $lr = mysqli_query($conn, "SELECT GET_LOCK('" . $lockToken . "', 50) AS gl");
+    $grow = $lr ? mysqli_fetch_assoc($lr) : null;
+    if (!$lr || !isset($grow["gl"]) || (int) $grow["gl"] !== 1) {
+        echo "Failed: system busy. Please retry.";
+        exit;
     }
-    $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $user['user_id'] . "','" . $consumed . "','" . $now . "')");
-    $q=mysqli_query($conn,"DELETE FROM custom_sms WHERE user_id='".$_SESSION['user_id']."'");
+    $gotLock = true;
 
-    echo "Sent";
+    mysqli_begin_transaction($conn);
+    try {
+        $qc = mysqli_query($conn, "SELECT * FROM custom_sms WHERE user_id='" . $uid . "'");
+        if (!$qc) {
+            throw new Exception(mysqli_error($conn));
+        }
+
+        $buf = array();
+        $queued = 0;
+        while ($custom = mysqli_fetch_assoc($qc)) {
+            $phone_number = mysqli_real_escape_string($conn, str_replace(" ", "", $custom["phone_number"]));
+            $sender_id = mysqli_real_escape_string($conn, $custom["sender_id"]);
+            $message = mysqli_real_escape_string($conn, $custom["message"]);
+            $credits = (int) $custom["credits"];
+            $schedule = mysqli_real_escape_string($conn, $custom["schedule"]);
+            $start_date = (int) $custom["start_date"];
+            $end_date = (int) $custom["end_date"];
+            $date_created = (int) $custom["date_created"];
+            $attempts = (int) $custom["attempts"];
+            $sms_status = mysqli_real_escape_string($conn, $custom["sms_status"]);
+            $user_id_esc = mysqli_real_escape_string($conn, $custom["user_id"]);
+            $smsc_id = "";
+
+            $buf[] = "('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id_esc . "','" . mysqli_real_escape_string($conn, $smsc_id) . "')";
+            if (count($buf) >= $chunk) {
+                if (!vll_flush_outgoing_values($conn, $buf)) {
+                    throw new Exception(mysqli_error($conn));
+                }
+                $queued += count($buf);
+                $buf = array();
+            }
+        }
+        if (count($buf) > 0) {
+            if (!vll_flush_outgoing_values($conn, $buf)) {
+                throw new Exception(mysqli_error($conn));
+            }
+            $queued += count($buf);
+        }
+
+        if ($queued === 0) {
+            throw new Exception("No rows queued from custom_sms");
+        }
+
+        $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . mysqli_real_escape_string($conn, $user["user_id"]) . "','" . (int) $consumed . "','" . (int) $now . "')");
+        if (!$q) {
+            throw new Exception(mysqli_error($conn));
+        }
+        $q = mysqli_query($conn, "DELETE FROM custom_sms WHERE user_id='" . $uid . "'");
+        if (!$q) {
+            throw new Exception(mysqli_error($conn));
+        }
+
+        mysqli_commit($conn);
+        echo "Sent";
+    } catch (Exception $e) {
+        mysqli_rollback($conn);
+        error_log("send_custom failure: " . $e->getMessage());
+        echo "Failed: could not complete send. Please retry.";
+    } finally {
+        if ($gotLock) {
+            mysqli_query($conn, "SELECT RELEASE_LOCK('" . $lockToken . "')");
+        }
+    }
+} elseif ($consumed <= 0) {
+    echo "Failed: nothing to send";
 } else {
     echo "Failed: Insufficient Balance";
 }

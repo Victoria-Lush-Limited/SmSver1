@@ -2,12 +2,12 @@
 include "db/dblink.php";
 include __DIR__ . "/phone_lib.php";
 
-error_reporting(E_ALL);
-ini_set('display_errors', 0);
+error_reporting(0);
+ini_set("display_errors", "0");
 
 // Provider routing config:
-// - Tanzania (+255) -> FastHub
-// - Kenya (+254), Uganda (+256) -> Regional provider
+// - Tanzania (255…) -> FastHub
+// - Kenya (254…), Uganda (256…) -> Regional provider
 $fasthub = include "fasthub_config.php";
 $regional = include "regional_sms_config.php";
 
@@ -21,24 +21,25 @@ $providers = array(
         "config" => $regional
     )
 );
-$max_attempts = 5;
+$max_attempts = (int) vll_env("VLL_OUTGOING_MAX_ATTEMPTS", "5");
+if ($max_attempts < 1) {
+    $max_attempts = 5;
+}
+$worker_batch = (int) vll_env("VLL_OUTGOING_WORKER_BATCH", "200");
+if ($worker_batch < 30) {
+    $worker_batch = 30;
+}
+if ($worker_batch > 500) {
+    $worker_batch = 500;
+}
 
 $now = time();
-$q = mysqli_query($conn, "SELECT * FROM outgoing WHERE sms_status='Pending' AND date_created <= '" . $now . "' AND attempts<'" . $max_attempts . "' LIMIT 50");
+$q = mysqli_query(
+    $conn,
+    "SELECT * FROM outgoing WHERE sms_status='Pending' AND date_created <= '" . intval($now) . "' AND attempts<'" . intval($max_attempts) . "' ORDER BY sms_id ASC LIMIT " . intval($worker_batch)
+);
 
-$messages = array();
 $routed = array();
-if ($conn) {
-    mysqli_query($conn, "CREATE TABLE IF NOT EXISTS sms_api_logs (
-        log_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        provider VARCHAR(50) NOT NULL,
-        request_body MEDIUMTEXT,
-        response_body MEDIUMTEXT,
-        http_code INT DEFAULT NULL,
-        status VARCHAR(25) NOT NULL,
-        created_at INT NOT NULL
-    )");
-}
 function detect_provider_name($msisdn, $providers)
 {
     foreach ($providers as $provider_name => $provider_info) {

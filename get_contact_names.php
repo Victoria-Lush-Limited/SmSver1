@@ -1,6 +1,7 @@
 <?php include "db/dblink.php";
 
-$contacts = explode(",", mysqli_real_escape_string($conn, $_GET['items']));
+$items_raw = isset($_GET["items"]) ? (string) $_GET["items"] : "";
+$contacts = explode(",", mysqli_real_escape_string($conn, $items_raw));
 
 $recipient_list = "";
 for ($i = 0; $i < count($contacts) - 1; $i++) {

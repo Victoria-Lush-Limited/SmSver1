@@ -87,6 +87,18 @@ $to_date = time();
             </div>
 
             <div class="page-content" id="page-content">
+                <?php
+                if (isset($_GET["r"])) {
+                    $flash = (string) $_GET["r"];
+                    if ($flash === "key_ok") {
+                        echo '<div class="account-flash account-flash-success">API key generated. Copy it below and store it somewhere safe.</div>';
+                    } elseif ($flash === "key_err") {
+                        echo '<div class="account-flash account-flash-error">Could not save API key. Ask your administrator to run <code>SmSver1/db/add_users_api_key.sql</code> on the database if the column is missing.</div>';
+                    } elseif ($flash === "key_inactive") {
+                        echo '<div class="account-flash account-flash-error">API keys are only available for active accounts.</div>';
+                    }
+                }
+                ?>
                 <div class="profile-info">
                     <div><label>Phone Number:</label></div>
                     <div><?php echo $user['user_id']; ?></div>
@@ -100,23 +112,63 @@ $to_date = time();
                     <div><?php echo $user['status']; ?></div>
                 </div>
 
-                <div class="profile-info">
+                <div class="profile-info api-key-row">
                     <div><label>API Key:</label></div>
-                    <div>
+                    <div class="api-key-wrap">
                         <?php
-                        if (!empty($user['api_key'])) {
-                            echo $user['api_key'];
+                        if (!empty($user["api_key"])) {
+                            $k = htmlspecialchars($user["api_key"], ENT_QUOTES, "UTF-8");
+                            ?>
+                            <code id="api_key_value" class="api-key-value"><?php echo $k; ?></code>
+                            <button type="button" class="api-key-copy-btn" onclick="vllCopyApiKey()"><i class="fas fa-copy"></i> Copy</button>
+                            <a class="api-key-regen" href="generate_api_key.php" onclick="return confirm('Regenerate API key? The current key will stop working immediately.');"><i class="fas fa-sync-alt"></i> Regenerate</a>
+                            <?php
                         } else {
+                            ?>
+                            <span class="api-key-missing">No key yet.</span>
+                            <a class="api-key-generate" href="generate_api_key.php" onclick="return confirm('Generate a new API key for integrations and external apps?');"><i class="fas fa-key"></i> Generate key</a>
+                            <?php
+                        }
                         ?>
-                            <label for="">
-                                <span class="change-password">
-                                    <i class="fas fa-key fa-small"></i>Generate Key
-                                </span>
-                            </label>
-                        <?php } ?>
-
                     </div>
                 </div>
+                <script>
+                function vllCopyApiKey() {
+                    var el = document.getElementById("api_key_value");
+                    if (!el) { return; }
+                    var text = (el.textContent || "").trim();
+                    if (!text) { return; }
+                    function done() { alert("API key copied to clipboard."); }
+                    function fail() { window.prompt("Copy this API key:", text); }
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(text).then(done).catch(function() {
+                            try {
+                                var ta = document.createElement("textarea");
+                                ta.value = text;
+                                ta.style.position = "fixed";
+                                ta.style.left = "-9999px";
+                                document.body.appendChild(ta);
+                                ta.select();
+                                document.execCommand("copy");
+                                document.body.removeChild(ta);
+                                done();
+                            } catch (e) { fail(); }
+                        });
+                    } else {
+                        try {
+                            var ta = document.createElement("textarea");
+                            ta.value = text;
+                            ta.style.position = "fixed";
+                            ta.style.left = "-9999px";
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand("copy");
+                            document.body.removeChild(ta);
+                            done();
+                        } catch (e) { fail(); }
+                    }
+                }
+                </script>
 
                 <div class="profile-info">
                     <div><label>Password:</label></div>

@@ -1,7 +1,13 @@
 <?php
 include "db/dblink.php";
 include "phone_lib.php";
+include_once "outgoing_queue_lib.php";
 
+@set_time_limit(0);
+$vll_max_send_seconds = (int) vll_env("VLL_SEND_MAX_SECONDS", "600");
+if ($vll_max_send_seconds > 0) {
+    @ini_set("max_execution_time", (string) $vll_max_send_seconds);
+}
 
 $q = mysqli_query($conn, "SELECT * FROM users WHERE user_id='" . $_SESSION['user_id'] . "' AND status='Active'");
 $found = mysqli_num_rows($q);
@@ -83,21 +89,45 @@ $no_recipients_msg = ($recipient_list_all_count > 0)
 
 function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $consumed, $now)
 {
+    $lockToken = "vllsmsq_" . md5($user_id);
+    $chunk = vll_send_insert_chunk_size();
+    $attempts = 0;
+
+    $gotLock = false;
+    $lr = mysqli_query($conn, "SELECT GET_LOCK('" . $lockToken . "', 50) AS gl");
+    $grow = $lr ? mysqli_fetch_assoc($lr) : null;
+    if (!$lr || !isset($grow["gl"]) || (int) $grow["gl"] !== 1) {
+        error_log("send_sms: GET_LOCK failed for user_id=" . $user_id);
+        return false;
+    }
+    $gotLock = true;
+
+    $ok = false;
     mysqli_begin_transaction($conn);
     try {
-        $attempts = 0;
         $queued = 0;
+        $buf = array();
+
         for ($i = 0; $i < count($recipient_list); $i++) {
             $phone_number = trim($recipient_list[$i]);
             if ($phone_number === "") {
                 continue;
             }
-
-            $q = mysqli_query($conn, "INSERT INTO outgoing(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id,smsc_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "','Queued for provider')");
-            if (!$q) {
+            $p = mysqli_real_escape_string($conn, $phone_number);
+            $buf[] = "('" . $p . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "','Queued for provider')";
+            if (count($buf) >= $chunk) {
+                if (!vll_flush_outgoing_values($conn, $buf)) {
+                    throw new Exception(mysqli_error($conn));
+                }
+                $queued += count($buf);
+                $buf = array();
+            }
+        }
+        if (count($buf) > 0) {
+            if (!vll_flush_outgoing_values($conn, $buf)) {
                 throw new Exception(mysqli_error($conn));
             }
-            $queued++;
+            $queued += count($buf);
         }
 
         if ($queued === 0) {
@@ -112,12 +142,15 @@ function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message,
         }
 
         mysqli_commit($conn);
-        return true;
+        $ok = true;
     } catch (Exception $e) {
         mysqli_rollback($conn);
         error_log("send_sms queue failure for user_id=" . $user_id . ": " . $e->getMessage());
-        return false;
     }
+    if ($gotLock) {
+        mysqli_query($conn, "SELECT RELEASE_LOCK('" . $lockToken . "')");
+    }
+    return $ok;
 }
 
 switch ($schedule) {

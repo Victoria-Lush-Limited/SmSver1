@@ -64,7 +64,7 @@ $to_date = time();
                 }
                 if ($_GET['r'] != "Sent") {
                 ?>
-                    <div class="message-failed"><?php echo $_GET['r']; ?></div>
+                    <div class="message-failed"><?php echo htmlspecialchars((string) $_GET['r'], ENT_QUOTES, 'UTF-8'); ?></div>
                 <?php
                 }
             } else { ?>
@@ -76,8 +76,13 @@ $to_date = time();
                             <div class="form-field">
                                 <div class="field-label">Recipients:</div>
                                 <div class="custom-input-wrapper">
-                                    <input type="text" name="recipient" id="recipient" placeholder="Type phone number then press enter ">
-                                    <small>Supported prefixes: +255 (Tanzania), +254 (Kenya), +256 (Uganda).</small>
+                                    <input type="text" name="recipient" id="recipient" placeholder="Type MSISDN (255… / 254… / 256…) then press Enter ">
+                                    <div class="supported-prefixes-banner" role="note">
+                                        <span class="pfx pfx-tz"><i class="fas fa-sim-card" aria-hidden="true"></i><strong>255</strong> Tanzania</span>
+                                        <span class="pfx pfx-ke"><i class="fas fa-sim-card" aria-hidden="true"></i><strong>254</strong> Kenya</span>
+                                        <span class="pfx pfx-ug"><i class="fas fa-sim-card" aria-hidden="true"></i><strong>256</strong> Uganda</span>
+                                    </div>
+                                    <small class="supported-prefixes-note">Numbers are stored and sent as <strong>255</strong>, <strong>254</strong>, or <strong>256</strong> country codes (no + prefix).</small>
                                     <div class="custom-input">
                                         <div name="recipient_list" id="recipient_list"></div>
 

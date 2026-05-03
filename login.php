@@ -1,4 +1,11 @@
-<?php include "db/dblink.php"; ?>
+<?php
+include "db/dblink.php";
+$rmsg = isset($_GET['r']) ? (string) $_GET['r'] : '';
+$login_help = '';
+if ($conn && isset($app['login_help'])) {
+    $login_help = trim((string) $app['login_help']);
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -16,9 +23,15 @@
         <div class="login-form">
             <div class="form-title">Sign In to your account</div>
 
+            <?php if ($login_help !== '') { ?>
+            <div class="form-field">
+                <div class="login-help-box"><?php echo nl2br(htmlspecialchars($login_help, ENT_QUOTES, 'UTF-8')); ?></div>
+            </div>
+            <?php } ?>
+
             <div class="form-field">
                 <label>
-                    <div class="error-message"><?php echo $_GET['r']; ?></div>
+                    <div class="error-message"><?php echo htmlspecialchars($rmsg, ENT_QUOTES, 'UTF-8'); ?></div>
                 </label>
             </div>
             <div class="form-field">

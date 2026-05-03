@@ -994,7 +994,11 @@ function toggle_all(status, table_name) {
 
 function get_items(table_name) {
     var items = "";
-    var fields = document.getElementById(table_name).getElementsByTagName("input");
+    var root = document.getElementById(table_name);
+    if (!root) {
+        return "";
+    }
+    var fields = root.getElementsByTagName("input");
     for (var i = 0, max = fields.length; i < max; i++) {
         if (fields[i].type === 'checkbox' && fields[i].id.length !== 0) {
             var id = fields[i].id;
@@ -1015,28 +1019,40 @@ function insert_templates() {
 
     var template_ids = "";
     for (var i = 0; i < (templates.length - 1); i++) {
-        template_ids += (templates[i].split("_")[1]) + ",";
-    }
-
-    // document.getElementById('templates').value += template_ids;
-
-    var phpurl = "get_template_text.php?items=" + template_ids;
-
-    var xmlhttp;
-    if (window.XMLHttpRequest) {
-        xmlhttp = new XMLHttpRequest();
-    } else {
-        xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
-    xmlhttp.onreadystatechange = function () {
-        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            var message = document.getElementById('message').value + xmlhttp.responseText;
-            document.getElementById('message').value = message;
-            count_message();
-            document.getElementById('insert_templates').click();
+        if (templates[i] === "") {
+            continue;
         }
+        var parts = templates[i].split("_");
+        if (parts.length < 2) {
+            continue;
+        }
+        template_ids += parts.slice(1).join("_") + ",";
     }
-    xmlhttp.open("GET", phpurl, false);
+
+    if (template_ids === "") {
+        alert("Please select one or more templates.");
+        return;
+    }
+
+    var phpurl = "get_template_text.php?items=" + encodeURIComponent(template_ids);
+    var xmlhttp = new XMLHttpRequest();
+    xmlhttp.onreadystatechange = function () {
+        if (xmlhttp.readyState !== 4) {
+            return;
+        }
+        if (xmlhttp.status !== 200) {
+            alert("Could not insert template. Please try again.");
+            return;
+        }
+        var message = document.getElementById('message').value + xmlhttp.responseText;
+        document.getElementById('message').value = message;
+        count_message();
+        var cb = document.getElementById('insert_templates');
+        if (cb) {
+            cb.click();
+        }
+    };
+    xmlhttp.open("GET", phpurl, true);
     xmlhttp.send();
 }
 
@@ -1046,27 +1062,41 @@ function insert_groups() {
     var group_ids = "";
 
     for (var i = 0; i < (groups.length - 1); i++) {
-        group_ids += (groups[i].split("_")[1]) + ",";
-    }
-
-    document.getElementById('groups').value += group_ids;
-
-    var phpurl = "get_group_names.php?items=" + group_ids;
-    var xmlhttp;
-    if (window.XMLHttpRequest) {
-        xmlhttp = new XMLHttpRequest();
-    } else {
-        xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
-    xmlhttp.onreadystatechange = function () {
-        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            var recipient_list = xmlhttp.responseText + document.getElementById('recipient_list').innerHTML;
-            document.getElementById('recipient_list').innerHTML = recipient_list;
-            get_total_recipients();
-            document.getElementById('insert_groups').click();
+        if (groups[i] === "") {
+            continue;
         }
+        var parts = groups[i].split("_");
+        if (parts.length < 2) {
+            continue;
+        }
+        group_ids += parts.slice(1).join("_") + ",";
     }
-    xmlhttp.open("GET", phpurl, false);
+
+    if (group_ids === "") {
+        alert("Please select one or more groups.");
+        return;
+    }
+
+    var phpurl = "get_group_names.php?items=" + encodeURIComponent(group_ids);
+    var xmlhttp = new XMLHttpRequest();
+    xmlhttp.onreadystatechange = function () {
+        if (xmlhttp.readyState !== 4) {
+            return;
+        }
+        if (xmlhttp.status !== 200) {
+            alert("Could not insert groups. Please try again.");
+            return;
+        }
+        document.getElementById('groups').value += group_ids;
+        var recipient_list = xmlhttp.responseText + document.getElementById('recipient_list').innerHTML;
+        document.getElementById('recipient_list').innerHTML = recipient_list;
+        get_total_recipients();
+        var cb = document.getElementById('insert_groups');
+        if (cb) {
+            cb.click();
+        }
+    };
+    xmlhttp.open("GET", phpurl, true);
     xmlhttp.send();
 }
 
@@ -1077,67 +1107,87 @@ function insert_contacts() {
     var phone_numbers = "";
 
     for (var i = 0; i < (contacts.length - 1); i++) {
-        phone_numbers += (contacts[i].split("_")[1]) + ",";
-    }
-
-    document.getElementById('contacts').value += phone_numbers;
-
-    var phpurl = "get_contact_names.php?items=" + phone_numbers;
-    var xmlhttp;
-    if (window.XMLHttpRequest) {
-        xmlhttp = new XMLHttpRequest();
-    } else {
-        xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
-    xmlhttp.onreadystatechange = function () {
-        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            var recipient_list = xmlhttp.responseText + document.getElementById('recipient_list').innerHTML;
-            document.getElementById('recipient_list').innerHTML = recipient_list;
-            document.getElementById('insert_contacts').click();
-
-            get_total_recipients();
+        if (contacts[i] === "") {
+            continue;
         }
+        var parts = contacts[i].split("_");
+        if (parts.length < 2) {
+            continue;
+        }
+        phone_numbers += parts.slice(1).join("_") + ",";
     }
-    xmlhttp.open("GET", phpurl, false);
+
+    if (phone_numbers === "" || phone_numbers === ",") {
+        alert("Please tick one or more contacts to insert.");
+        return;
+    }
+
+    var phpurl = "get_contact_names.php?items=" + encodeURIComponent(phone_numbers);
+    var xmlhttp = new XMLHttpRequest();
+    xmlhttp.onreadystatechange = function () {
+        if (xmlhttp.readyState !== 4) {
+            return;
+        }
+        if (xmlhttp.status !== 200) {
+            alert("Could not load contact names. Check your connection and try again.");
+            return;
+        }
+        document.getElementById('contacts').value += phone_numbers;
+        var recipient_list = xmlhttp.responseText + document.getElementById('recipient_list').innerHTML;
+        document.getElementById('recipient_list').innerHTML = recipient_list;
+        var cb = document.getElementById('insert_contacts');
+        if (cb) {
+            cb.click();
+        }
+
+        get_total_recipients();
+    };
+    xmlhttp.open("GET", phpurl, true);
     xmlhttp.send();
 }
 
 function get_contacts_modal(start_row, per_page) {
 
-    var phpurl = "get_contacts_modal.php?start_row=" + start_row + "&per_page=" + per_page;
-    var xmlhttp;
-    if (window.XMLHttpRequest) {
-        xmlhttp = new XMLHttpRequest();
-    } else {
-        xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
+    var phpurl = "get_contacts_modal.php?start_row=" + encodeURIComponent(start_row) + "&per_page=" + encodeURIComponent(per_page);
+    var xmlhttp = new XMLHttpRequest();
     xmlhttp.onreadystatechange = function () {
-        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            document.getElementById('contacts_modal_content').innerHTML = xmlhttp.responseText;
-            document.getElementById('per_page').value = per_page;
+        if (xmlhttp.readyState !== 4) {
+            return;
         }
-    }
-    xmlhttp.open("GET", phpurl, false);
+        if (xmlhttp.status !== 200) {
+            document.getElementById('contacts_modal_content').innerHTML = "<p style='padding:12px;'>Could not load contacts.</p>";
+            return;
+        }
+        document.getElementById('contacts_modal_content').innerHTML = xmlhttp.responseText;
+        var sel = document.getElementById('contacts_modal_per_page');
+        if (sel) {
+            sel.value = String(per_page);
+        }
+    };
+    xmlhttp.open("GET", phpurl, true);
     xmlhttp.send();
 
 }
 
 
 function get_groups_modal(start_row, per_page) {
-    var phpurl = "get_groups_modal.php?start_row=" + start_row + "&per_page=" + per_page;
-    var xmlhttp;
-    if (window.XMLHttpRequest) {
-        xmlhttp = new XMLHttpRequest();
-    } else {
-        xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
+    var phpurl = "get_groups_modal.php?start_row=" + encodeURIComponent(start_row) + "&per_page=" + encodeURIComponent(per_page);
+    var xmlhttp = new XMLHttpRequest();
     xmlhttp.onreadystatechange = function () {
-        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            document.getElementById('groups_modal_content').innerHTML = xmlhttp.responseText;
-            document.getElementById('per_page').value = per_page;
+        if (xmlhttp.readyState !== 4) {
+            return;
         }
-    }
-    xmlhttp.open("GET", phpurl, false);
+        if (xmlhttp.status !== 200) {
+            document.getElementById('groups_modal_content').innerHTML = "<p style='padding:12px;'>Could not load groups.</p>";
+            return;
+        }
+        document.getElementById('groups_modal_content').innerHTML = xmlhttp.responseText;
+        var sel = document.getElementById('groups_modal_per_page');
+        if (sel) {
+            sel.value = String(per_page);
+        }
+    };
+    xmlhttp.open("GET", phpurl, true);
     xmlhttp.send();
 
 }
@@ -1145,52 +1195,52 @@ function get_groups_modal(start_row, per_page) {
 
 
 function get_templates_modal(start_row, per_page) {
-    var phpurl = "get_templates_modal.php?start_row=" + start_row + "&per_page=" + per_page;
-    var xmlhttp;
-    if (window.XMLHttpRequest) {
-        xmlhttp = new XMLHttpRequest();
-    } else {
-        xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
-    }
+    var phpurl = "get_templates_modal.php?start_row=" + encodeURIComponent(start_row) + "&per_page=" + encodeURIComponent(per_page);
+    var xmlhttp = new XMLHttpRequest();
     xmlhttp.onreadystatechange = function () {
-        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            document.getElementById('templates_modal_content').innerHTML = xmlhttp.responseText;
-            document.getElementById('per_page').value = per_page;
+        if (xmlhttp.readyState !== 4) {
+            return;
         }
-    }
-    xmlhttp.open("GET", phpurl, false);
+        if (xmlhttp.status !== 200) {
+            document.getElementById('templates_modal_content').innerHTML = "<p style='padding:12px;'>Could not load templates.</p>";
+            return;
+        }
+        document.getElementById('templates_modal_content').innerHTML = xmlhttp.responseText;
+        var sel = document.getElementById('templates_modal_per_page');
+        if (sel) {
+            sel.value = String(per_page);
+        }
+    };
+    xmlhttp.open("GET", phpurl, true);
     xmlhttp.send();
 
 }
 
 function parse_recipient() {
-    var recipient = document.getElementById('recipient').value.replace(" ", "");
-    if (recipient.length >= 10 && recipient.length <= 15) {
-        var recipient_list = document.getElementById('recipient_list').innerHTML;
-        var contacts = document.getElementById('contacts').value;
-        contacts = contacts + recipient + ",";
+    var recipient = document.getElementById('recipient').value.replace(/\s+/g, "");
+    if (recipient.length < 10 || recipient.length > 15) {
+        return;
+    }
 
-        var phpurl = "get_contact_names.php?items=" + recipient + ",";
-        var xmlhttp;
-        if (window.XMLHttpRequest) {
-            xmlhttp = new XMLHttpRequest();
-        } else {
-            xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+    var phpurl = "get_contact_names.php?items=" + encodeURIComponent(recipient + ",");
+    var xmlhttp = new XMLHttpRequest();
+    xmlhttp.onreadystatechange = function () {
+        if (xmlhttp.readyState !== 4) {
+            return;
         }
-        xmlhttp.onreadystatechange = function () {
-            if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-                var recipient_list = xmlhttp.responseText + document.getElementById('recipient_list').innerHTML;
-                document.getElementById('recipient_list').innerHTML = recipient_list;
-                document.getElementById('recipient').value = '';
-            }
+        if (xmlhttp.status !== 200) {
+            alert("Could not add recipient. Please try again.");
+            return;
         }
-        xmlhttp.open("GET", phpurl, false);
-        xmlhttp.send();
-
-
+        var recipient_list = xmlhttp.responseText + document.getElementById('recipient_list').innerHTML;
+        document.getElementById('recipient_list').innerHTML = recipient_list;
+        document.getElementById('recipient').value = '';
+        var contacts = document.getElementById('contacts').value + recipient + ",";
         document.getElementById('contacts').value = contacts;
         get_total_recipients();
-    }
+    };
+    xmlhttp.open("GET", phpurl, true);
+    xmlhttp.send();
 }
 
 function get_total_recipients() {

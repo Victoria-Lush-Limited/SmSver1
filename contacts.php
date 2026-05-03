@@ -97,12 +97,12 @@ $to_date = time();
                         <div class="form-field">
                             <label for="contact_phone_region">Country / number type</label>
                             <select name="contact_phone_region" id="contact_phone_region">
-                                <option value="TZ">Tanzania (+255)</option>
-                                <option value="KE">Kenya (+254)</option>
-                                <option value="UG">Uganda (+256)</option>
+                                <option value="TZ">Tanzania (255)</option>
+                                <option value="KE">Kenya (254)</option>
+                                <option value="UG">Uganda (256)</option>
                                 <option value="OTHER">Other (full international digits)</option>
                             </select>
-                            <small>SMS sending supports <strong>Tanzania (+255)</strong>, <strong>Kenya (+254)</strong>, and <strong>Uganda (+256)</strong>.</small>
+                            <small>SMS sending supports country codes <strong>255</strong> (Tanzania), <strong>254</strong> (Kenya), and <strong>256</strong> (Uganda).</small>
                         </div>
                         <div class="form-field">
                             <label for="phone_number">Phone number</label>
@@ -187,12 +187,12 @@ $to_date = time();
                             <div class="form-field">
                                 <label for="import_region">Country for numbers in file</label>
                                 <select name="import_region" id="import_region">
-                                    <option value="TZ">Tanzania (+255)</option>
-                                    <option value="KE">Kenya (+254)</option>
-                                    <option value="UG">Uganda (+256)</option>
+                                    <option value="TZ">Tanzania (255)</option>
+                                    <option value="KE">Kenya (254)</option>
+                                    <option value="UG">Uganda (256)</option>
                                     <option value="OTHER">Other (full international per row)</option>
                                 </select>
-                                <small>SMS sending supports +255 (TZ), +254 (KE), and +256 (UG).</small>
+                                <small>SMS sending supports <strong>255</strong> (TZ), <strong>254</strong> (KE), and <strong>256</strong> (UG).</small>
                             </div>
                             <div class="form-field">
                                 <label for="contacts_file">Upload CSV/XLSX file</label>

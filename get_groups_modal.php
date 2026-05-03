@@ -1,13 +1,13 @@
 <?php
 include "db/dblink.php";
 
-$start_row = $_GET['start_row'] - 1;
-$per_page = $_GET['per_page'];
+$start_row = isset($_GET["start_row"]) ? max(0, (int) $_GET["start_row"] - 1) : 0;
+$per_page = isset($_GET["per_page"]) ? max(1, min(500, (int) $_GET["per_page"])) : 20;
 
 $previous_start_row = $start_row - $per_page;
 $table_rows = 0;
 
-$keyword = mysqli_real_escape_string($conn, $_GET['keyword']);
+$keyword = mysqli_real_escape_string($conn, isset($_GET["keyword"]) ? (string) $_GET["keyword"] : "");
 
 $q = mysqli_query($conn, "SELECT * FROM groups WHERE user_id='" . $_SESSION['user_id'] . "' AND group_name LIKE '%" . $keyword . "%'");
 
@@ -72,7 +72,7 @@ $showing_to = $start_row + $table_rows;
     <ul class="page-rows">
         <li><label>Per Page:</label></li>
         <li>
-            <select name="per_page" id="per_page" onchange="get_groups_modal(<?php echo ($start_row + 1); ?>,this.value)">
+            <select name="groups_modal_per_page" id="groups_modal_per_page" onchange="get_groups_modal(<?php echo ($start_row + 1); ?>,this.value)">
                 <option value="10">10 rows</option>
                 <option value="25">25 rows</option>
                 <option value="50">50 rows</option>
