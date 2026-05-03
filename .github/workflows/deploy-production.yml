@@ -24,7 +24,8 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Accept either the standard secret name or repo-specific private key secret
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY || secrets.SMSVER1 }}
           REMOTE_PATH: /var/www/public_html/victorialush/sms/
         run: |
           set -euo pipefail
