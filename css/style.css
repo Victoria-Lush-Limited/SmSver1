@@ -1367,29 +1367,31 @@ td {
 /* --- Responsive layout (phones / small tablets) --- */
 @media (max-width: 960px) {
     .container {
-        flex-direction: column;
+        flex-direction: row;
+        align-items: flex-start;
     }
     .menu {
-        width: 100%;
-        min-width: 0;
-        min-height: auto;
-        border-right: none;
-        border-bottom: 1px solid var(--gray-color);
+        width: 200px;
+        min-width: 160px;
+        max-width: 40%;
+        flex-shrink: 0;
+        min-height: 80vh;
+        border-right: 1px solid var(--gray-color);
+        border-bottom: none;
     }
     .menu ul {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: flex-start;
-        gap: 6px;
-        padding: 10px 8px;
+        display: block;
+        padding: 12px 6px;
     }
     .menu ul li {
-        flex: 1 1 calc(50% - 8px);
-        min-width: 140px;
-        text-align: center;
+        flex: none;
+        min-width: 0;
+        text-align: left;
     }
     .content-wrapper {
-        width: 100%;
+        flex: 1;
+        min-width: 0;
+        width: auto;
         padding: 12px 14px;
     }
     .page-header {
