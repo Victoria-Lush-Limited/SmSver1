@@ -40,7 +40,7 @@ if ($len === 12 && strpos($pn, '254') === 0) {
     </div>
 
     <div class="form-field">
-        <div class="send-button" onclick="update_contact(document.getElementById('start_row').value,document.getElementById('per_page').value,'<?php echo $contact['contact_id']; ?>')"><i class="fas fa-save"></i>Save Contact</div>
+        <div class="send-button" onclick="update_contact(vllContactsStartRow(),vllContactsPerPage(),'<?php echo htmlspecialchars((string) $contact['contact_id'], ENT_QUOTES, 'UTF-8'); ?>')"><i class="fas fa-save"></i>Save Contact</div>
     </div>
     <div class="form-field">
         <div class="form-errors" id="edit_form_errors"></div>

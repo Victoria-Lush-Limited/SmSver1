@@ -13,21 +13,32 @@ $keyword = mysqli_real_escape_string($conn, isset($_GET['keyword']) ? (string) $
 
 $uid = isset($_SESSION['user_id']) ? mysqli_real_escape_string($conn, (string) $_SESSION['user_id']) : '';
 
-if ($uid === '' || !$conn) {
-    echo '<p style="padding:12px;">Session or database unavailable. Please sign in again.</p>';
-    return;
-}
+$err = '';
+$found = 0;
+$q2 = null;
 
-if (!empty($group_id)) {
-    $q = mysqli_query($conn, "SELECT * FROM contacts C, group_contacts G WHERE C.contact_id=G.contact_id AND G.group_id='" . $group_id . "' AND C.user_id='" . $uid . "' AND (C.contact_name LIKE '%" . $keyword . "%' || C.phone_number LIKE '%" . $keyword . "%' || C.email LIKE '%" . $keyword . "%')");
+if ($uid === '' || !$conn) {
+    $err = 'Session or database unavailable. Please sign in again.';
 } else {
-    $q = mysqli_query($conn, "SELECT * FROM contacts WHERE user_id='" . $uid . "' AND (contact_name LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || email LIKE '%" . $keyword . "%')");
+    if (!empty($group_id)) {
+        $q1 = mysqli_query($conn, "SELECT * FROM contacts C, group_contacts G WHERE C.contact_id=G.contact_id AND G.group_id='" . $group_id . "' AND C.user_id='" . $uid . "' AND (C.contact_name LIKE '%" . $keyword . "%' || C.phone_number LIKE '%" . $keyword . "%' || C.email LIKE '%" . $keyword . "%')");
+    } else {
+        $q1 = mysqli_query($conn, "SELECT * FROM contacts WHERE user_id='" . $uid . "' AND (contact_name LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || email LIKE '%" . $keyword . "%')");
+    }
+    if (!$q1) {
+        $err = 'Could not load contacts. Please try again.';
+    } else {
+        $found = mysqli_num_rows($q1);
+        if (!empty($group_id)) {
+            $q2 = mysqli_query($conn, "SELECT * FROM contacts C, group_contacts G WHERE C.contact_id=G.contact_id AND G.group_id='" . $group_id . "' AND C.user_id='" . $uid . "' AND (C.contact_name LIKE '%" . $keyword . "%' || C.phone_number LIKE '%" . $keyword . "%' || C.email LIKE '%" . $keyword . "%') ORDER BY C.contact_id DESC LIMIT " . (int) $start_row . "," . (int) $per_page);
+        } else {
+            $q2 = mysqli_query($conn, "SELECT * FROM contacts WHERE user_id='" . $uid . "' AND (contact_name LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || email LIKE '%" . $keyword . "%') ORDER BY contact_id DESC LIMIT " . (int) $start_row . "," . (int) $per_page);
+        }
+        if (!$q2) {
+            $err = 'Could not load contacts. Please try again.';
+        }
+    }
 }
-if (!$q) {
-    echo '<p style="padding:12px;">Could not load contacts. Please try again.</p>';
-    return;
-}
-$found = mysqli_num_rows($q);
 
 ?>
 <table id="contacts">
@@ -40,34 +51,30 @@ $found = mysqli_num_rows($q);
         <td>Options</td>
     </tr>
     <?php
-    if (!empty($group_id)) {
-        $q = mysqli_query($conn, "SELECT * FROM contacts C, group_contacts G WHERE C.contact_id=G.contact_id AND G.group_id='" . $group_id . "' AND C.user_id='" . $uid . "' AND (C.contact_name LIKE '%" . $keyword . "%' || C.phone_number LIKE '%" . $keyword . "%' || C.email LIKE '%" . $keyword . "%') ORDER BY C.contact_id DESC LIMIT " . (int) $start_row . "," . (int) $per_page);
-    } else {
-        $q = mysqli_query($conn, "SELECT * FROM contacts WHERE user_id='" . $uid . "' AND (contact_name LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || email LIKE '%" . $keyword . "%') ORDER BY contact_id DESC LIMIT " . (int) $start_row . "," . (int) $per_page);
-    }
-    if (!$q) {
-        echo '<p style="padding:12px;">Could not load contacts. Please try again.</p>';
-        return;
-    }
-    if ($found) {
-
-        while ($contact = mysqli_fetch_assoc($q)) {
+    if ($err !== '') {
+        ?>
+            <tr>
+                <td colspan="6" style="padding:12px;"><?php echo htmlspecialchars($err, ENT_QUOTES, 'UTF-8'); ?></td>
+            </tr>
+        <?php
+    } elseif ($found && $q2) {
+        while ($contact = mysqli_fetch_assoc($q2)) {
             $table_rows += 1;
-    ?>
+            ?>
             <tr>
                 <td><input type="checkbox" name="item_<?php echo $contact['contact_id']; ?>" id="item_<?php echo $contact['contact_id']; ?>"></td>
-                <td><?php echo $contact['phone_number']; ?></td>
-                <td><?php echo $contact['contact_name']; ?></td>
-                <td><?php echo $contact['email']; ?></td>
+                <td><?php echo htmlspecialchars((string) $contact['phone_number'], ENT_QUOTES, 'UTF-8'); ?></td>
+                <td><?php echo htmlspecialchars((string) $contact['contact_name'], ENT_QUOTES, 'UTF-8'); ?></td>
+                <td><?php echo htmlspecialchars((string) $contact['email'], ENT_QUOTES, 'UTF-8'); ?></td>
                 <td><?php echo date("d-m-Y H:i", $contact['date_created']); ?></td>
                 <td>
                     <div class="row-options">
-                        <i class="fas fa-edit fa-l" onclick="edit_contact('<?php echo $contact['contact_id'];?>')"></i>
-                        <i class="fas fa-trash fa-l" onclick="delete_contacts(<?php echo $contact['contact_id']; ?>,'<?php echo $group_id; ?>')"></i>
+                        <i class="fas fa-edit fa-l" onclick="edit_contact('<?php echo htmlspecialchars((string) $contact['contact_id'], ENT_QUOTES, 'UTF-8'); ?>')"></i>
+                        <i class="fas fa-trash fa-l" onclick="delete_contacts(<?php echo (int) $contact['contact_id']; ?>,'<?php echo htmlspecialchars($group_id, ENT_QUOTES, 'UTF-8'); ?>')"></i>
                     </div>
                 </td>
             </tr>
-    <?php
+            <?php
         }
     }
 
@@ -86,8 +93,8 @@ $found = mysqli_num_rows($q);
 
 <div class="pagination">
     <div class="page-nav">
-        <i class="fas fa-chevron-left fa-s" <?php if ($start_row > 0) { ?> onclick="get_contacts(<?php echo $previous_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
-        <i class="fas fa-chevron-right fa-s" <?php if ($next_start_row <= $found) { ?> onclick="get_contacts(<?php echo $next_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
+        <i class="fas fa-chevron-left fa-s" <?php if ($start_row > 0 && $err === '') { ?> onclick="get_contacts(<?php echo $previous_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
+        <i class="fas fa-chevron-right fa-s" <?php if ($next_start_row <= $found && $err === '') { ?> onclick="get_contacts(<?php echo $next_start_row; ?>,<?php echo $per_page; ?>)" <?php } ?>></i>
         <div class="page-records">
             Showing
             <b><?php echo number_format($showing_from); ?> - <?php echo number_format($showing_to); ?> </b>

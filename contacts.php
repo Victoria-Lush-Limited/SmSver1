@@ -29,8 +29,8 @@ $to_date = time();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $app['app_name']; ?></title>
     <link rel="stylesheet" href="css/all.css">
-    <link rel="stylesheet" href="css/style.css?v=20260503">
-    <script src="js/script.js?v=20260503"></script>
+    <link rel="stylesheet" href="css/style.css?v=20260503b">
+    <script src="js/script.js?v=20260503b"></script>
 </head>
 
 <body>
@@ -52,167 +52,171 @@ $to_date = time();
                         </label>
                     </li>
 
-                    <li onclick="download_contacts()">
-                        <label for=""><i class="fas fa-upload fa-s"></i>Import Contacts</label>
+                    <li>
+                        <label for="import_contacts">
+                            <i class="fas fa-upload fa-s"></i>Import Contacts
+                        </label>
                     </li>
                     <li>
                         <label for="create_group">
                             <i class="fas fa-plus fa-s"></i>New Group
                         </label>
                     </li>
-                
+
                     <li onclick="bulk_delete_contacts()">
-                        <label for=""><i class="fas fa-trash fa-s"></i>Delete</label>
+                        <span class="page-menu-item"><i class="fas fa-trash fa-s"></i>Delete</span>
                     </li>
                 </ul>
                 <div class="page-options">
                     <ul>
                         <li>
-                            <select type="text" id="group_id" name="group_id" onchange="get_contacts(1,document.getElementById('per_page').value)">
+                            <select type="text" id="group_id" name="group_id" onchange="get_contacts(1,vllContactsPerPage())">
                                 <option value="">Select Group [All]</option>
                                 <?php
                                 $q = mysqli_query($conn, "SELECT * FROM groups WHERE user_id='" . $_SESSION['user_id'] . "'");
-                                while ($group = mysqli_fetch_assoc($q)) {
-                                    echo "<option value=\"" . $group['group_id'] . "\">" . $group['group_name'] . "</option>";
+                                if ($q) {
+                                    while ($group = mysqli_fetch_assoc($q)) {
+                                        echo "<option value=\"" . htmlspecialchars((string) $group['group_id'], ENT_QUOTES, 'UTF-8') . "\">" . htmlspecialchars((string) $group['group_name'], ENT_QUOTES, 'UTF-8') . "</option>";
+                                    }
                                 }
                                 ?>
                             </select>
                         </li>
-                        <li><input type="text" id="keyword" name="keyword" placeholder="Search Keyword" onchange="get_contacts(1,document.getElementById('per_page').value)"><i class="fas fa-search fa-s" onclick="get_contacts(1,document.getElementById('per_page').value)"></i></li>
+                        <li><input type="text" id="keyword" name="keyword" placeholder="Search Keyword" onchange="get_contacts(1,vllContactsPerPage())"><i class="fas fa-search fa-s" onclick="get_contacts(1,vllContactsPerPage())"></i></li>
                     </ul>
-                </div>
-            </div>
-            <input type="checkbox" id="create_contact" name="create_contact">
-            <div id="create_contact_modal">
-                <div class="modal-wrapper">
-                    <div class="modal-header">
-                        <div class="modal-title">
-                            New Contact
-                        </div>
-                        <div class="modal-close">
-                            <label for="create_contact"><i class="fas fa-times fa-2x"></i></label>
-                        </div>
-                    </div>
-                    <div class="modal-content" id="create_contact_modal_content">
-                        <div class="form-field">
-                            <label for="contact_phone_region">Country / number type</label>
-                            <select name="contact_phone_region" id="contact_phone_region">
-                                <option value="TZ">Tanzania (255)</option>
-                                <option value="KE">Kenya (254)</option>
-                                <option value="UG">Uganda (256)</option>
-                                <option value="OTHER">Other (full international digits)</option>
-                            </select>
-                            <small>SMS sending supports country codes <strong>255</strong> (Tanzania), <strong>254</strong> (Kenya), and <strong>256</strong> (Uganda).</small>
-                        </div>
-                        <div class="form-field">
-                            <label for="phone_number">Phone number</label>
-                            <input type="text" name="phone_number" id="phone_number" placeholder="0742200333 or 255742200333">
-                            <small>National 0… or 9 digits without code; or full number with country code (Other = international only).</small>
-                        </div>
-                        <div class="form-field">
-                            <label for="">Contact Name</label>
-                            <input type="text" name="contact_name" id="contact_name">
-                        </div>
-                        <div class="form-field">
-                            <label for="">Email</label>
-                            <input type="text" name="email" id="email">
-                        </div>
-
-                        <div class="form-field">
-                            <div class="send-button" onclick="save_contact(document.getElementById('start_row').value,document.getElementById('per_page').value)"><i class="fas fa-save"></i>Save Contact</div>
-                        </div>
-                        <div class="form-field">
-                            <div class="form-errors" id="contact_form_errors"></div>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-            <input type="checkbox" id="create_group" name="create_group">
-            <div id="create_group_modal">
-                <div class="modal-wrapper">
-                    <div class="modal-header">
-                        <div class="modal-title">
-                            New Group
-                        </div>
-                        <div class="modal-close">
-                            <label for="create_group"><i class="fas fa-times fa-2x"></i></label>
-                        </div>
-                    </div>
-                    <div class="modal-content" id="create_group_modal_content">
-                        <div class="form-field">
-                            <label for="">Group Name</label>
-                            <input type="text" name="group_name" id="group_name">
-                        </div>
-                        <div class="form-field">
-                            <div class="send-button" onclick="save_group()"><i class="fas fa-users"></i>Save Group</div>
-                        </div>
-                        <div class="form-field">
-                            <div class="form-errors" id="group_form_errors"></div>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-            <input type="checkbox" id="edit_contact" name="edit_contact">
-            <div id="edit_contact_modal">
-
-                <div class="modal-wrapper">
-                    <div class="modal-header">
-                        <div class="modal-title">
-                            Edit Contact
-                        </div>
-                        <div class="modal-close">
-                            <label for="edit_contact"><i class="fas fa-times fa-2x"></i></label>
-                        </div>
-                    </div>
-                    <div class="modal-content" id="edit_contact_modal_content">
-                        
-                    </div>
-                </div>
-            </div>
-            <input type="checkbox" id="import_contacts" name="import_contacts">
-            <div id="import_contacts_modal">
-                <div class="modal-wrapper">
-                    <div class="modal-header">
-                        <div class="modal-title">
-                            Import Contacts
-                        </div>
-                        <div class="modal-close">
-                            <label for="import_contacts"><i class="fas fa-times fa-2x"></i></label>
-                        </div>
-                    </div>
-                    <div class="modal-content">
-                        <form id="import_contacts_form" action="import_contacts.php" method="post" enctype="multipart/form-data">
-                            <div class="form-field">
-                                <label for="import_region">Country for numbers in file</label>
-                                <select name="import_region" id="import_region">
-                                    <option value="TZ">Tanzania (255)</option>
-                                    <option value="KE">Kenya (254)</option>
-                                    <option value="UG">Uganda (256)</option>
-                                    <option value="OTHER">Other (full international per row)</option>
-                                </select>
-                                <small>SMS sending supports <strong>255</strong> (TZ), <strong>254</strong> (KE), and <strong>256</strong> (UG).</small>
-                            </div>
-                            <div class="form-field">
-                                <label for="contacts_file">Upload CSV/XLSX file</label>
-                                <input type="file" name="contacts_file" id="contacts_file" accept=".csv,.xlsx,.xls">
-                            </div>
-                            <div class="form-field">
-                                <small>Expected columns: Phone Number, Contact Name, Email</small>
-                            </div>
-                            <div class="form-field">
-                                <div class="send-button" onclick="import_contacts_file()"><i class="fas fa-file-import"></i>Import</div>
-                            </div>
-                            <div class="form-field">
-                                <div class="form-errors" id="import_form_errors"></div>
-                            </div>
-                        </form>
-                    </div>
                 </div>
             </div>
             <div class="page-content" id="page-content">
 
+            </div>
+        </div>
+    </div>
+    <input type="checkbox" id="create_contact" name="create_contact" class="modal-checkbox">
+    <div id="create_contact_modal">
+        <div class="modal-wrapper">
+            <div class="modal-header">
+                <div class="modal-title">
+                    New Contact
+                </div>
+                <div class="modal-close">
+                    <label for="create_contact"><i class="fas fa-times fa-2x"></i></label>
+                </div>
+            </div>
+            <div class="modal-content" id="create_contact_modal_content">
+                <div class="form-field">
+                    <label for="contact_phone_region">Country / number type</label>
+                    <select name="contact_phone_region" id="contact_phone_region">
+                        <option value="TZ">Tanzania (255)</option>
+                        <option value="KE">Kenya (254)</option>
+                        <option value="UG">Uganda (256)</option>
+                        <option value="OTHER">Other (full international digits)</option>
+                    </select>
+                    <small>SMS sending supports country codes <strong>255</strong> (Tanzania), <strong>254</strong> (Kenya), and <strong>256</strong> (Uganda).</small>
+                </div>
+                <div class="form-field">
+                    <label for="phone_number">Phone number</label>
+                    <input type="text" name="phone_number" id="phone_number" placeholder="0742200333 or 255742200333">
+                    <small>National 0… or 9 digits without code; or full number with country code (Other = international only).</small>
+                </div>
+                <div class="form-field">
+                    <label for="">Contact Name</label>
+                    <input type="text" name="contact_name" id="contact_name">
+                </div>
+                <div class="form-field">
+                    <label for="">Email</label>
+                    <input type="text" name="email" id="email">
+                </div>
+
+                <div class="form-field">
+                    <div class="send-button" onclick="save_contact(vllContactsStartRow(),vllContactsPerPage())"><i class="fas fa-save"></i>Save Contact</div>
+                </div>
+                <div class="form-field">
+                    <div class="form-errors" id="contact_form_errors"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <input type="checkbox" id="create_group" name="create_group" class="modal-checkbox">
+    <div id="create_group_modal">
+        <div class="modal-wrapper">
+            <div class="modal-header">
+                <div class="modal-title">
+                    New Group
+                </div>
+                <div class="modal-close">
+                    <label for="create_group"><i class="fas fa-times fa-2x"></i></label>
+                </div>
+            </div>
+            <div class="modal-content" id="create_group_modal_content">
+                <div class="form-field">
+                    <label for="">Group Name</label>
+                    <input type="text" name="group_name" id="group_name">
+                </div>
+                <div class="form-field">
+                    <div class="send-button" onclick="save_group()"><i class="fas fa-users"></i>Save Group</div>
+                </div>
+                <div class="form-field">
+                    <div class="form-errors" id="group_form_errors"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <input type="checkbox" id="edit_contact" name="edit_contact" class="modal-checkbox">
+    <div id="edit_contact_modal">
+
+        <div class="modal-wrapper">
+            <div class="modal-header">
+                <div class="modal-title">
+                    Edit Contact
+                </div>
+                <div class="modal-close">
+                    <label for="edit_contact"><i class="fas fa-times fa-2x"></i></label>
+                </div>
+            </div>
+            <div class="modal-content" id="edit_contact_modal_content">
+
+            </div>
+        </div>
+    </div>
+    <input type="checkbox" id="import_contacts" name="import_contacts" class="modal-checkbox">
+    <div id="import_contacts_modal">
+        <div class="modal-wrapper">
+            <div class="modal-header">
+                <div class="modal-title">
+                    Import Contacts
+                </div>
+                <div class="modal-close">
+                    <label for="import_contacts"><i class="fas fa-times fa-2x"></i></label>
+                </div>
+            </div>
+            <div class="modal-content">
+                <form id="import_contacts_form" action="import_contacts.php" method="post" enctype="multipart/form-data">
+                    <div class="form-field">
+                        <label for="import_region">Country for numbers in file</label>
+                        <select name="import_region" id="import_region">
+                            <option value="TZ">Tanzania (255)</option>
+                            <option value="KE">Kenya (254)</option>
+                            <option value="UG">Uganda (256)</option>
+                            <option value="OTHER">Other (full international per row)</option>
+                        </select>
+                        <small>SMS sending supports <strong>255</strong> (TZ), <strong>254</strong> (KE), and <strong>256</strong> (UG).</small>
+                    </div>
+                    <div class="form-field">
+                        <label for="contacts_file">Upload CSV/XLSX file</label>
+                        <input type="file" name="contacts_file" id="contacts_file" accept=".csv,.xlsx,.xls">
+                    </div>
+                    <div class="form-field">
+                        <small>Expected columns: Phone Number, Contact Name, Email</small>
+                    </div>
+                    <div class="form-field">
+                        <div class="send-button" onclick="import_contacts_file()"><i class="fas fa-file-import"></i>Import</div>
+                    </div>
+                    <div class="form-field">
+                        <div class="form-errors" id="import_form_errors"></div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

@@ -1,3 +1,13 @@
+function vllContactsPerPage() {
+    var el = document.getElementById('per_page');
+    return el && el.value ? el.value : '10';
+}
+
+function vllContactsStartRow() {
+    var el = document.getElementById('start_row');
+    return el && el.value ? el.value : '1';
+}
+
 function cancel_scheduled() {
 
     var start_row = document.getElementById('start_row').value;
@@ -638,8 +648,8 @@ function update_contact(start_row, per_page, contact_id) {
                 } else if (xmlhttp.responseText.trim() == "Invalid") {
                     document.getElementById('edit_form_errors').innerHTML += "<div> - Invalid phone number for selected country</div>";
                 } else {
-                    var start_row = document.getElementById('start_row').value;
-                    var per_page = document.getElementById('per_page').value;
+                    var start_row = vllContactsStartRow();
+                    var per_page = vllContactsPerPage();
                     get_contacts(start_row, per_page);
                     document.getElementById('edit_contact').click();
                 }
@@ -685,8 +695,8 @@ function bulk_delete_contacts() {
         return false;
     }
 
-    var start_row = document.getElementById('start_row').value;
-    var per_page = document.getElementById('per_page').value;
+    var start_row = vllContactsStartRow();
+    var per_page = vllContactsPerPage();
 
     var group_id = document.getElementById('group_id').value;
 
@@ -714,8 +724,8 @@ function delete_contacts(contact_id, group_id) {
     if (!confirm("Are you sure you want to delete this contact?")) {
         return false;
     }
-    var start_row = document.getElementById('start_row').value;
-    var per_page = document.getElementById('per_page').value;
+    var start_row = vllContactsStartRow();
+    var per_page = vllContactsPerPage();
 
     var phpurl = "delete_contacts.php?contact_id=" + encodeURIComponent(contact_id) + "&group_id=" + encodeURIComponent(group_id);
 
@@ -786,7 +796,7 @@ function save_group(start_row, per_page) {
                     return false;
                 }
                 get_groups_list();
-                get_contacts(1, document.getElementById('per_page').value);
+                get_contacts(1, vllContactsPerPage());
                 document.getElementById('group_name').value = "";
                 document.getElementById('create_group').click();
             }
@@ -1307,7 +1317,10 @@ function get_contacts(start_row, per_page) {
     }
     xmlhttp.onreadystatechange = function () {
         if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-            document.getElementById('page-content').innerHTML = xmlhttp.responseText;
+            var pc = document.getElementById('page-content');
+            if (pc) {
+                pc.innerHTML = xmlhttp.responseText;
+            }
             var pp = document.getElementById('per_page');
             if (pp) {
                 pp.value = String(per_page);

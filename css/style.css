@@ -526,22 +526,29 @@ td {
 }
 
 
-#create_contact {
-    display: none;
+/* Contacts modals: not display:none so <label for> reliably toggles the checkbox */
+#create_contact.modal-checkbox,
+#edit_contact.modal-checkbox,
+#create_group.modal-checkbox,
+#import_contacts.modal-checkbox {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+    opacity: 0;
 }
 
-
-#edit_contact {
-    display: none;
-}
-
-
-#create_group {
-    display: none;
-}
-
-#import_contacts {
-    display: none;
+.page-menu .page-menu-item {
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 5px 0;
+    display: inline-block;
 }
 
 
