@@ -1308,7 +1308,10 @@ function get_contacts(start_row, per_page) {
     xmlhttp.onreadystatechange = function () {
         if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
             document.getElementById('page-content').innerHTML = xmlhttp.responseText;
-            document.getElementById('per_page').value = per_page;
+            var pp = document.getElementById('per_page');
+            if (pp) {
+                pp.value = String(per_page);
+            }
         }
     }
     xmlhttp.open("GET", phpurl, false);

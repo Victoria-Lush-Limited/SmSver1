@@ -62,7 +62,9 @@ $total_recipients = count($recipient_list);
 $message = mysqli_real_escape_string($conn, $_POST['message']);
 $credits = ceil(strlen($message) / 160);;
 
-$sender_id = mysqli_real_escape_string($conn, $_POST['sender_id']);
+$sender_raw = isset($_POST['sender_id']) ? trim((string) $_POST['sender_id']) : '';
+$sender_raw = vll_normalize_outgoing_sender_id($sender_raw);
+$sender_id = mysqli_real_escape_string($conn, $sender_raw);
 
 $user_id = $user['user_id'];
 $sms_status = "Pending";

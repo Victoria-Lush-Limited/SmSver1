@@ -950,6 +950,8 @@ td {
     border-radius: 20px;
     padding: 3px 5px;
     margin: 3px 5px;
+    color: var(--primary-color);
+    font-weight: 600;
 }
 
 .parsed-contact span {
@@ -958,7 +960,7 @@ td {
 }
 
 .parsed-contact i {
-    color: orangered;
+    color: var(--primary-color);
     margin: 0px 5px;
     cursor: pointer;
 }
@@ -1308,12 +1310,6 @@ td {
     font-size: 1rem;
     color: var(--primary-color);
 }
-.supported-prefixes-banner .pfx-tz strong { color: #1a7f37; }
-.supported-prefixes-banner .pfx-tz i { color: #1a7f37; }
-.supported-prefixes-banner .pfx-ke strong { color: #b8860b; }
-.supported-prefixes-banner .pfx-ke i { color: #b8860b; }
-.supported-prefixes-banner .pfx-ug strong { color: #1c5fb8; }
-.supported-prefixes-banner .pfx-ug i { color: #1c5fb8; }
 .supported-prefixes-note {
     display: block;
     margin-top: 6px;

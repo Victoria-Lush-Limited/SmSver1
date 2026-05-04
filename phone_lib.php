@@ -139,3 +139,19 @@ function phone_is_fasthub_tanzania_msisdn($digits)
     $digits = preg_replace('/\D+/', '', (string) $digits);
     return strlen($digits) === 12 && strpos($digits, '255') === 0;
 }
+
+/**
+ * Canonical system default sender for handsets (FastHub / 255 and all routes).
+ * Legacy installs used "VLL-SMS"; approved form is "VLL SMS".
+ */
+function vll_normalize_outgoing_sender_id($sender_id)
+{
+    $s = trim((string) $sender_id);
+    if ($s === '') {
+        return '';
+    }
+    if (strcasecmp($s, 'VLL-SMS') === 0 || strcasecmp($s, 'VLLSMS') === 0) {
+        return 'VLL SMS';
+    }
+    return $s;
+}

@@ -33,8 +33,8 @@ $to_date = time();
     <script type="text/javascript" src="js/jquery-ui-1.8.13.custom.min.js"></script>
 
     <link rel="stylesheet" href="css/all.css">
-    <link rel="stylesheet" href="css/style.css">
-    <script src="js/script.js"></script>
+    <link rel="stylesheet" href="css/style.css?v=20260503">
+    <script src="js/script.js?v=20260503"></script>
     <script>
         $(function() {
             $("#start_date").datepicker({
@@ -58,6 +58,9 @@ $to_date = time();
         <div class="content-wrapper">
 
             <div class="page-title">File SMS</div>
+            <?php if (isset($_GET['r']) && (string) $_GET['r'] !== '') { ?>
+                <div class="message-failed"><?php echo htmlspecialchars((string) $_GET['r'], ENT_QUOTES, 'UTF-8'); ?></div>
+            <?php } ?>
             <div class="page-content" id="page-content">
                 <div class="page-form">
                     <form id="composer" name="composer" method="post" action="upload_file.php" enctype="multipart/form-data">
@@ -66,7 +69,12 @@ $to_date = time();
                             <div class="custom-input-wrapper">
                                 <input type="file" name="file_name" id="file_name">
                                 <br>
-                                Only <b>.xls</b> and <b>.xlsx</b> files allowed
+                                Only <b>.xls</b> and <b>.xlsx</b> files allowed. Put <strong>one MSISDN per row</strong> in the <strong>first column</strong> using country codes <strong>255</strong> (Tanzania), <strong>254</strong> (Kenya), or <strong>256</strong> (Uganda); national 0-prefixed or 9-digit values are normalised as Tanzania (255), same rules as Compose.
+                                <div class="supported-prefixes-banner" style="margin-top:8px;" role="note">
+                                    <span class="pfx"><i class="fas fa-sim-card" aria-hidden="true"></i><strong>255</strong> TZ</span>
+                                    <span class="pfx"><i class="fas fa-sim-card" aria-hidden="true"></i><strong>254</strong> KE</span>
+                                    <span class="pfx"><i class="fas fa-sim-card" aria-hidden="true"></i><strong>256</strong> UG</span>
+                                </div>
                             </div>
 
                         </div>
@@ -76,11 +84,17 @@ $to_date = time();
                                 <select name="sender_id" id="sender_id">
                                     <option value="">Select Sender ID</option>
                                     <?php
-                                    $q = mysqli_query($conn, "SELECT * FROM senders WHERE id_status='Active' AND user_id='" . $_SESSION['user_id'] . "' OR id_type='Public'");
-                                    while ($sender = mysqli_fetch_assoc($q)) {
+                                    if ($conn) {
+                                        $uid_fs = mysqli_real_escape_string($conn, (string) $_SESSION['user_id']);
+                                        $rs_senders = mysqli_query($conn, "SELECT * FROM senders WHERE id_status='Active' AND (user_id='" . $uid_fs . "' OR id_type='Public' OR id_type='Global') ORDER BY sender_id ASC");
+                                        if ($rs_senders) {
+                                            while ($sender = mysqli_fetch_assoc($rs_senders)) {
+                                                $sid = htmlspecialchars((string) $sender['sender_id'], ENT_QUOTES, 'UTF-8');
                                     ?>
-                                        <option value="<?php echo $sender['sender_id']; ?>"><?php echo $sender['sender_id']; ?></option>
+                                        <option value="<?php echo $sid; ?>"><?php echo $sid; ?></option>
                                     <?php
+                                            }
+                                        }
                                     }
                                     ?>
                                 </select>

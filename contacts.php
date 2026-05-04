@@ -29,8 +29,8 @@ $to_date = time();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $app['app_name']; ?></title>
     <link rel="stylesheet" href="css/all.css">
-    <link rel="stylesheet" href="css/style.css">
-    <script src="js/script.js?v=20260501"></script>
+    <link rel="stylesheet" href="css/style.css?v=20260503">
+    <script src="js/script.js?v=20260503"></script>
 </head>
 
 <body>

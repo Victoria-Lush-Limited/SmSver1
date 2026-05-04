@@ -17,12 +17,15 @@ if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
 }
 
 include 'simple_xlsx.php';
+include_once __DIR__ . '/phone_lib.php';
 
+$uid_del = mysqli_real_escape_string($conn, (string) $_SESSION['user_id']);
+mysqli_query($conn, "DELETE FROM custom_sms WHERE user_id='" . $uid_del . "'");
 
-$q=mysqli_query($conn,"DELETE FROM custom_sms WHERE user_id='".$_SESSION['user_id']."'");
-
-$sender_id = mysqli_real_escape_string($conn, $_POST['sender_id']);
-$template = mysqli_real_escape_string($conn, $_POST['message']);
+$sender_raw = isset($_POST['sender_id']) ? trim((string) $_POST['sender_id']) : '';
+$sender_raw = vll_normalize_outgoing_sender_id($sender_raw);
+$sender_id = mysqli_real_escape_string($conn, $sender_raw);
+$template_raw = isset($_POST['message']) ? (string) $_POST['message'] : '';
 
 $date_created = time();
 $user_id = $user['user_id'];
@@ -42,77 +45,85 @@ if ($_FILES["file_name"]["size"] < 2000000) {
 
             $columns = array();
             $headers = $xlsx->rows();
+            if (!isset($headers[0]) || !is_array($headers[0]) || count($headers[0]) < 1) {
+                header("location:file_sms.php?r=" . urlencode("The spreadsheet has no usable header row."));
+                exit;
+            }
 
             for ($i = 0; $i < count($headers[0]); $i++) {
                 $stub = "{" . $headers[0][$i] . "}";
                 array_push($columns, $stub);
             }
 
+            $schedule_raw = isset($_POST['schedule']) ? (string) $_POST['schedule'] : 'None';
+            $sched_esc = mysqli_real_escape_string($conn, $schedule_raw);
+            $start_date = strtotime(mysqli_real_escape_string($conn, isset($_POST['start_date']) ? (string) $_POST['start_date'] : ''));
+            $end_date = strtotime(mysqli_real_escape_string($conn, isset($_POST['end_date']) ? (string) $_POST['end_date'] : ''));
+            $h = isset($_POST['send_hour']) ? max(0, min(23, (int) $_POST['send_hour'])) : 0;
+            $m = isset($_POST['send_minute']) ? max(0, min(59, (int) $_POST['send_minute'])) : 0;
+            $uid_ins = mysqli_real_escape_string($conn, (string) $_SESSION['user_id']);
+
             $rows = 0;
             foreach ($xlsx->rows() as $fields) {
                 if ($rows > 0) {
-                    $message = $template;
+                    $message = $template_raw;
                     for ($i = 0; $i < count($columns); $i++) {
-                        $message = str_replace($columns[$i], $fields[$i], $message);
+                        $cell = isset($fields[$i]) ? (string) $fields[$i] : '';
+                        $message = str_replace($columns[$i], $cell, $message);
                     }
 
-                    $phone_number = str_replace(" ","", $fields[0]);
-                    $credits = ceil(strlen($message) / 160);
-
-                    $schedule = mysqli_real_escape_string($conn, $_POST['schedule']);
-
-                    $start_date = strtotime(mysqli_real_escape_string($conn, $_POST['start_date']));
-                    $end_date = strtotime(mysqli_real_escape_string($conn, $_POST['end_date']));
-
-                    $send_hour = mysqli_real_escape_string($conn, $_POST['send_hour']);
-                    $send_minute = mysqli_real_escape_string($conn, $_POST['send_minute']);
-
+                    $phone_raw = isset($fields[0]) ? preg_replace('/\s+/', '', (string) $fields[0]) : '';
+                    $phone_norm = normalize_recipient_msisdn($phone_raw);
+                    if ($phone_norm === '' || !preg_match('/^(255|254|256)/', $phone_norm)) {
+                        $rows += 1;
+                        continue;
+                    }
+                    $phone_esc = mysqli_real_escape_string($conn, $phone_norm);
+                    $msg_esc = mysqli_real_escape_string($conn, $message);
+                    $credits = (int) ceil(strlen($message) / 160);
+                    if ($credits < 1) {
+                        $credits = 1;
+                    }
 
                     $now = time();
-
                     $attempts = 0;
-                    $sms_status = "Pending";
-                    $user_id = $_SESSION['user_id'];
+                    $sms_status_esc = mysqli_real_escape_string($conn, 'Pending');
 
-if(!empty($phone_number) && !empty($message)){
-                    switch ($schedule) {
-                        case "None":
-                            $date_created = strtotime(date("d-m-Y", $start_date) . " " . $send_hour . ":" . $send_minute);
-                            $q = mysqli_query($conn, "INSERT INTO custom_sms(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "')");
-                            break;
+                    if ($msg_esc !== '' && $phone_esc !== '') {
+                        switch ($schedule_raw) {
+                            case "None":
+                                $date_created = strtotime(date("d-m-Y", $start_date) . " " . $h . ":" . $m);
+                                mysqli_query($conn, "INSERT INTO custom_sms(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_esc . "','" . $sender_id . "','" . $msg_esc . "','" . $credits . "','" . $sched_esc . "','" . (int) $start_date . "','" . (int) $end_date . "','" . (int) $date_created . "','" . (int) $attempts . "','" . $sms_status_esc . "','" . $uid_ins . "')");
+                                break;
 
-                        case "Daily":
+                            case "Daily":
+                                $next_date = $start_date;
+                                while ($next_date <= $end_date) {
+                                    $date_created = strtotime(date("d-m-Y", $next_date) . " " . $h . ":" . $m);
+                                    mysqli_query($conn, "INSERT INTO custom_sms(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_esc . "','" . $sender_id . "','" . $msg_esc . "','" . $credits . "','" . $sched_esc . "','" . (int) $start_date . "','" . (int) $end_date . "','" . (int) $date_created . "','" . (int) $attempts . "','" . $sms_status_esc . "','" . $uid_ins . "')");
+                                    $next_date = strtotime("+1 days", $next_date);
+                                }
+                                break;
 
-                            $next_date = $start_date;
-                            while ($next_date <= $end_date) {
-                                $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
-                                $q = mysqli_query($conn, "INSERT INTO custom_sms(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "')");
-                                $next_date =  strtotime("+1 days", $next_date);
-                            }
-                            break;
+                            case "Weekly":
+                                $next_date = $start_date;
+                                while ($next_date <= $end_date) {
+                                    $date_created = strtotime(date("d-m-Y", $next_date) . " " . $h . ":" . $m);
+                                    mysqli_query($conn, "INSERT INTO custom_sms(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_esc . "','" . $sender_id . "','" . $msg_esc . "','" . $credits . "','" . $sched_esc . "','" . (int) $start_date . "','" . (int) $end_date . "','" . (int) $date_created . "','" . (int) $attempts . "','" . $sms_status_esc . "','" . $uid_ins . "')");
+                                    $next_date = strtotime("+1 weeks", $next_date);
+                                }
+                                break;
 
-                        case "Weekly":
-
-                            $next_date = $start_date;
-                            while ($next_date <= $end_date) {
-                                $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
-                                $q = mysqli_query($conn, "INSERT INTO custom_sms(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "')");
-                                $next_date =  strtotime("+1 weeks", $next_date);
-                            }
-                            break;
-
-
-                        case "Monthly":
-
-                            $next_date = $start_date;
-                            while ($next_date <= $end_date) {
-                                $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
-                                $q = mysqli_query($conn, "INSERT INTO custom_sms(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_number . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "')");
-                                $next_date =  strtotime("+1 months", $next_date);
-                            }
-                            break;
+                            case "Monthly":
+                                $next_date = $start_date;
+                                while ($next_date <= $end_date) {
+                                    $date_created = strtotime(date("d-m-Y", $next_date) . " " . $h . ":" . $m);
+                                    mysqli_query($conn, "INSERT INTO custom_sms(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" . $phone_esc . "','" . $sender_id . "','" . $msg_esc . "','" . $credits . "','" . $sched_esc . "','" . (int) $start_date . "','" . (int) $end_date . "','" . (int) $date_created . "','" . (int) $attempts . "','" . $sms_status_esc . "','" . $uid_ins . "')");
+                                    $next_date = strtotime("+1 months", $next_date);
+                                }
+                                break;
+                        }
                     }
-}
                 }
                 $rows += 1;
             }

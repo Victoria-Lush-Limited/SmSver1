@@ -37,6 +37,12 @@ if ($conn) {
         $row = mysqli_fetch_assoc($q);
         if ($row) {
             $app = $row;
+            if (isset($app['sender_id']) && is_string($app['sender_id'])) {
+                $t = trim($app['sender_id']);
+                if (strcasecmp($t, 'VLL-SMS') === 0 || strcasecmp($t, 'VLLSMS') === 0) {
+                    $app['sender_id'] = 'VLL SMS';
+                }
+            }
         }
     }
 }

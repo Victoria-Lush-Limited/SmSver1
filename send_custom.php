@@ -1,5 +1,6 @@
 <?php
 include "db/dblink.php";
+include_once "phone_lib.php";
 include_once "outgoing_queue_lib.php";
 
 $uid = mysqli_real_escape_string($conn, $_SESSION['user_id']);
@@ -45,7 +46,8 @@ if ($consumed <= $balance && $consumed > 0) {
         $queued = 0;
         while ($custom = mysqli_fetch_assoc($qc)) {
             $phone_number = mysqli_real_escape_string($conn, str_replace(" ", "", $custom["phone_number"]));
-            $sender_id = mysqli_real_escape_string($conn, $custom["sender_id"]);
+            $sender_norm = vll_normalize_outgoing_sender_id((string) $custom["sender_id"]);
+            $sender_id = mysqli_real_escape_string($conn, $sender_norm);
             $message = mysqli_real_escape_string($conn, $custom["message"]);
             $credits = (int) $custom["credits"];
             $schedule = mysqli_real_escape_string($conn, $custom["schedule"]);

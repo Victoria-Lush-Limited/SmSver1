@@ -33,8 +33,8 @@ $to_date = time();
     <script type="text/javascript" src="js/jquery-ui-1.8.13.custom.min.js"></script>
 
     <link rel="stylesheet" href="css/all.css">
-    <link rel="stylesheet" href="css/style.css">
-    <script src="js/script.js"></script>
+    <link rel="stylesheet" href="css/style.css?v=20260503">
+    <script src="js/script.js?v=20260503"></script>
     <script>
         $(function() {
             $("#start_date").datepicker({
@@ -141,7 +141,8 @@ $to_date = time();
                                     <select name="sender_id" id="sender_id">
                                         <option value="">Select Sender ID</option>
                                         <?php
-                                        $q = mysqli_query($conn, "SELECT * FROM senders WHERE id_status='Active' AND user_id='" . $_SESSION['user_id'] . "' OR id_type='Public'");
+                                        $uid_sel = mysqli_real_escape_string($conn, (string) $_SESSION['user_id']);
+                                        $q = mysqli_query($conn, "SELECT * FROM senders WHERE id_status='Active' AND (user_id='" . $uid_sel . "' OR id_type='Public' OR id_type='Global') ORDER BY sender_id ASC");
                                         while ($sender = mysqli_fetch_assoc($q)) {
                                         ?>
                                             <option value="<?php echo $sender['sender_id']; ?>"><?php echo $sender['sender_id']; ?></option>

@@ -1,6 +1,11 @@
 <?php
 /**
- * FastHub integration switchboard.
+ * FastHub integration switchboard (Tanzania 255… routes in smpp_client.php).
+ *
+ * On the FastHub bulk portal the approved sender name is "VLL SMS" (space).
+ * Legacy "VLL-SMS" is normalised to "VLL SMS" in phone_lib / workers — keep
+ * FastHub registration aligned with that string or sends may be rejected.
+ *
  * Change values here only; no need to edit smpp_client.php.
  */
 return array(

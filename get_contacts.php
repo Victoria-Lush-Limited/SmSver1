@@ -1,20 +1,31 @@
 <?php
 include "db/dblink.php";
 
-$start_row = $_GET['start_row'] - 1;
-$per_page = $_GET['per_page'];
+$start_page = isset($_GET['start_row']) ? max(1, (int) $_GET['start_row']) : 1;
+$start_row = $start_page - 1;
+$per_page = isset($_GET['per_page']) ? max(1, min(500, (int) $_GET['per_page'])) : 10;
 
 $previous_start_row = $start_row - $per_page;
 $table_rows = 0;
 
-$group_id = mysqli_real_escape_string($conn, $_GET['group_id']);
+$group_id = mysqli_real_escape_string($conn, isset($_GET['group_id']) ? (string) $_GET['group_id'] : '');
+$keyword = mysqli_real_escape_string($conn, isset($_GET['keyword']) ? (string) $_GET['keyword'] : '');
 
-$keyword = mysqli_real_escape_string($conn, $_GET['keyword']);
+$uid = isset($_SESSION['user_id']) ? mysqli_real_escape_string($conn, (string) $_SESSION['user_id']) : '';
+
+if ($uid === '' || !$conn) {
+    echo '<p style="padding:12px;">Session or database unavailable. Please sign in again.</p>';
+    return;
+}
 
 if (!empty($group_id)) {
-    $q = mysqli_query($conn, "SELECT * FROM contacts C, group_contacts G WHERE C.contact_id=G.contact_id AND G.group_id='" . $group_id . "' AND C.user_id='" . $_SESSION['user_id'] . "' AND (C.contact_name LIKE '%" . $keyword . "%' || C.phone_number LIKE '%" . $keyword . "%' || C.email LIKE '%" . $keyword . "%')");
+    $q = mysqli_query($conn, "SELECT * FROM contacts C, group_contacts G WHERE C.contact_id=G.contact_id AND G.group_id='" . $group_id . "' AND C.user_id='" . $uid . "' AND (C.contact_name LIKE '%" . $keyword . "%' || C.phone_number LIKE '%" . $keyword . "%' || C.email LIKE '%" . $keyword . "%')");
 } else {
-    $q = mysqli_query($conn, "SELECT * FROM contacts WHERE user_id='" . $_SESSION['user_id'] . "' AND (contact_name LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || email LIKE '%" . $keyword . "%')");
+    $q = mysqli_query($conn, "SELECT * FROM contacts WHERE user_id='" . $uid . "' AND (contact_name LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || email LIKE '%" . $keyword . "%')");
+}
+if (!$q) {
+    echo '<p style="padding:12px;">Could not load contacts. Please try again.</p>';
+    return;
 }
 $found = mysqli_num_rows($q);
 
@@ -30,9 +41,13 @@ $found = mysqli_num_rows($q);
     </tr>
     <?php
     if (!empty($group_id)) {
-        $q = mysqli_query($conn, "SELECT * FROM contacts C, group_contacts G WHERE C.contact_id=G.contact_id AND G.group_id='" . $group_id . "' AND C.user_id='" . $_SESSION['user_id'] . "' AND (C.contact_name LIKE '%" . $keyword . "%' || C.phone_number LIKE '%" . $keyword . "%' || C.email LIKE '%" . $keyword . "%') ORDER BY C.contact_id DESC LIMIT " . $start_row . "," . $per_page);
+        $q = mysqli_query($conn, "SELECT * FROM contacts C, group_contacts G WHERE C.contact_id=G.contact_id AND G.group_id='" . $group_id . "' AND C.user_id='" . $uid . "' AND (C.contact_name LIKE '%" . $keyword . "%' || C.phone_number LIKE '%" . $keyword . "%' || C.email LIKE '%" . $keyword . "%') ORDER BY C.contact_id DESC LIMIT " . (int) $start_row . "," . (int) $per_page);
     } else {
-        $q = mysqli_query($conn, "SELECT * FROM contacts WHERE user_id='" . $_SESSION['user_id'] . "' AND (contact_name LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || email LIKE '%" . $keyword . "%') ORDER BY contact_id DESC LIMIT " . $start_row . "," . $per_page);
+        $q = mysqli_query($conn, "SELECT * FROM contacts WHERE user_id='" . $uid . "' AND (contact_name LIKE '%" . $keyword . "%' || phone_number LIKE '%" . $keyword . "%' || email LIKE '%" . $keyword . "%') ORDER BY contact_id DESC LIMIT " . (int) $start_row . "," . (int) $per_page);
+    }
+    if (!$q) {
+        echo '<p style="padding:12px;">Could not load contacts. Please try again.</p>';
+        return;
     }
     if ($found) {
 

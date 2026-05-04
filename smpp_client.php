@@ -276,7 +276,7 @@ while ($outgoing = mysqli_fetch_assoc($q)) {
     }
 
     $reference = substr(hash("sha256", $outgoing['sms_id'] . "|" . $outgoing['date_created'] . "|" . $msisdn), 0, 24);
-    $source = trim($outgoing['sender_id']);
+    $source = vll_normalize_outgoing_sender_id(trim($outgoing['sender_id']));
     if ($source === "") {
         $source = "VLL SMS";
     }
