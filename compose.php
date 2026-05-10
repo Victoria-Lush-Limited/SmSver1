@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include "db/dblink.php";
 
 if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
@@ -27,14 +27,15 @@ $to_date = time();
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php include __DIR__ . '/inc/head_brand_meta.php'; ?>
     <title><?php echo $app['app_name']; ?></title>
-    <link type="text/css" href="css/ui-lightness/jquery-ui-1.8.13.custom.css" rel="Stylesheet" />
-    <script type="text/javascript" src="js/jquery-1.5.1.min.js"></script>
-    <script type="text/javascript" src="js/jquery-ui-1.8.13.custom.min.js"></script>
+    <link type="text/css" href="css/ui-lightness/jquery-ui-1.8.13.custom.css?v=20260511" rel="Stylesheet" />
+    <script type="text/javascript" src="js/jquery-1.5.1.min.js?v=20260511"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.8.13.custom.min.js?v=20260511"></script>
 
-    <link rel="stylesheet" href="css/all.css">
-    <link rel="stylesheet" href="css/style.css?v=20260503">
-    <script src="js/script.js?v=20260503"></script>
+    <link rel="stylesheet" href="css/all.css?v=20260511">
+    <link rel="stylesheet" href="css/style.css?v=20260511">
+    <script src="js/script.js?v=20260511"></script>
     <script>
         $(function() {
             $("#start_date").datepicker({

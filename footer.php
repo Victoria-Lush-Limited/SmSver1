@@ -14,6 +14,9 @@
         <i class="fas fa-phone fa-lg"></i> 255 675 200 333
         </div>
         <div class="reseller-address">
+        <i class="fas fa-phone fa-lg"></i> +254 111 25 25 21 (Kenya)
+        </div>
+        <div class="reseller-address">
         <i class="fas fa-envelope fa-lg"></i> Support@victorialush.co.tz
         </div>
         <div class="reseller-address"></div>

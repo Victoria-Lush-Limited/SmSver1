@@ -1443,3 +1443,44 @@ td {
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     }
 }
+
+/* Narrow phones: stack menu above content, full-width tables scroll */
+@media (max-width: 640px) {
+    header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    header ul {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        width: 100%;
+    }
+    header ul li {
+        padding: 4px 10px;
+        font-size: 0.9rem;
+    }
+    .container {
+        flex-direction: column;
+    }
+    .menu {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        min-height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--gray-color);
+    }
+    .menu ul {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .content-wrapper {
+        width: 100%;
+        padding: 10px 12px;
+    }
+    .page-title {
+        font-size: 1.15rem;
+        line-height: 1.3;
+    }
+}
