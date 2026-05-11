@@ -91,7 +91,7 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                 </div>
             <?php } ?>
 
-            <form method="get" action="incoming.php" style="margin-bottom:12px;">
+            <form method="get" action="incoming.php" class="incoming-filters page-form">
                 <div class="form-field">
                     <div class="field-label">Sender ID Filter:</div>
                     <div class="custom-input-wrapper">
@@ -125,11 +125,11 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                     </div>
                 </div>
                 <?php } ?>
-                <ul class="field-list"><li><button type="submit" class="send-button" style="cursor:pointer;">Filter</button></li></ul>
+                <ul class="field-list"><li><button type="submit" class="send-button">Apply Filters</button></li></ul>
             </form>
 
-            <div style="margin-bottom:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-                <a href="incoming_export.php?sender_id=<?php echo urlencode($senderFilter); ?>" class="send-button" style="display:inline-block;text-decoration:none;">
+            <div class="incoming-actions-bar">
+                <a href="incoming_export.php?sender_id=<?php echo urlencode($senderFilter); ?>" class="send-button incoming-action-btn">
                     Download legacy CSV
                 </a>
                 <?php
@@ -138,21 +138,22 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                     $repBase .= '&segment=' . urlencode($segmentFilter);
                 }
                 ?>
-                <span style="opacity:0.85;">Reports (UTF-8 CSV, opens in Excel):</span>
-                <a href="<?php echo htmlspecialchars($repBase . '&report=all&mode=full', ENT_QUOTES, 'UTF-8'); ?>" class="send-button" style="display:inline-block;text-decoration:none;">All rows</a>
-                <a href="<?php echo htmlspecialchars($repBase . '&report=success&mode=full', ENT_QUOTES, 'UTF-8'); ?>" class="send-button" style="display:inline-block;text-decoration:none;">Successful auto-reply</a>
-                <a href="<?php echo htmlspecialchars($repBase . '&report=failed&mode=full', ENT_QUOTES, 'UTF-8'); ?>" class="send-button" style="display:inline-block;text-decoration:none;">Failed auto-reply</a>
-                <a href="<?php echo htmlspecialchars($repBase . '&report=all&mode=phones', ENT_QUOTES, 'UTF-8'); ?>" class="send-button" style="display:inline-block;text-decoration:none;">Phone list (import)</a>
-                <a href="<?php echo htmlspecialchars($repBase . '&report=success&mode=phones', ENT_QUOTES, 'UTF-8'); ?>" class="send-button" style="display:inline-block;text-decoration:none;">Phones · success only</a>
-                <a href="<?php echo htmlspecialchars($repBase . '&report=failed&mode=phones', ENT_QUOTES, 'UTF-8'); ?>" class="send-button" style="display:inline-block;text-decoration:none;">Phones · failed only</a>
+                <span class="incoming-report-label">Reports (UTF-8 CSV, opens in Excel):</span>
+                <a href="<?php echo htmlspecialchars($repBase . '&report=all&mode=full', ENT_QUOTES, 'UTF-8'); ?>" class="send-button incoming-action-btn">All rows</a>
+                <a href="<?php echo htmlspecialchars($repBase . '&report=success&mode=full', ENT_QUOTES, 'UTF-8'); ?>" class="send-button incoming-action-btn">Successful auto-reply</a>
+                <a href="<?php echo htmlspecialchars($repBase . '&report=failed&mode=full', ENT_QUOTES, 'UTF-8'); ?>" class="send-button incoming-action-btn">Failed auto-reply</a>
+                <a href="<?php echo htmlspecialchars($repBase . '&report=all&mode=phones', ENT_QUOTES, 'UTF-8'); ?>" class="send-button incoming-action-btn">Phone list (import)</a>
+                <a href="<?php echo htmlspecialchars($repBase . '&report=success&mode=phones', ENT_QUOTES, 'UTF-8'); ?>" class="send-button incoming-action-btn">Phones · success only</a>
+                <a href="<?php echo htmlspecialchars($repBase . '&report=failed&mode=phones', ENT_QUOTES, 'UTF-8'); ?>" class="send-button incoming-action-btn">Phones · failed only</a>
             </div>
 
             <form method="post" action="incoming_actions.php" enctype="multipart/form-data">
                 <input type="hidden" name="sender_filter" value="<?php echo htmlspecialchars($senderFilter, ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="segment_filter" value="<?php echo htmlspecialchars($segmentFilter, ENT_QUOTES, 'UTF-8'); ?>">
 
-                <table width="100%" border="0" cellspacing="0" cellpadding="6">
-                    <tr style="background:#f7f7f7;font-weight:bold;">
+                <div class="incoming-table-wrap">
+                <table class="incoming-table" width="100%" border="0" cellspacing="0" cellpadding="6">
+                    <tr class="incoming-table-header">
                         <td><input type="checkbox" onclick="for(const c of document.querySelectorAll('.in-sel')){c.checked=this.checked;}"></td>
                         <td>Sender ID</td>
                         <td>Phone Number</td>
@@ -168,10 +169,10 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                     $colspan = $incomingExtended ? 8 : 6;
                     ?>
                     <?php if (count($rows) === 0) { ?>
-                        <tr><td colspan="<?php echo (int) $colspan; ?>" style="padding:16px;">No incoming messages found.</td></tr>
+                        <tr><td colspan="<?php echo (int) $colspan; ?>" class="incoming-empty">No incoming messages found.</td></tr>
                     <?php } ?>
                     <?php foreach ($rows as $r) { ?>
-                        <tr style="border-bottom:1px solid #eee;">
+                        <tr class="incoming-row">
                             <td><input class="in-sel" type="checkbox" name="selected_ids[]" value="<?php echo (int) $r['id']; ?>"></td>
                             <td><?php echo htmlspecialchars((string) $r['recipient'], ENT_QUOTES, 'UTF-8'); ?></td>
                             <td><?php echo htmlspecialchars((string) $r['sender'], ENT_QUOTES, 'UTF-8'); ?></td>
@@ -182,14 +183,15 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                             <?php } ?>
                             <td><?php echo htmlspecialchars((string) $r['created_at'], ENT_QUOTES, 'UTF-8'); ?></td>
                             <td>
-                                <button name="action" value="delete_one" type="submit" formaction="incoming_actions.php?id=<?php echo (int) $r['id']; ?>" style="cursor:pointer;">Delete</button>
+                                <button name="action" value="delete_one" type="submit" formaction="incoming_actions.php?id=<?php echo (int) $r['id']; ?>" class="incoming-delete-btn">Delete</button>
                             </td>
                         </tr>
                     <?php } ?>
                 </table>
+                </div>
 
-                <div style="margin-top:16px;padding:12px;border:1px solid #eee;border-radius:8px;">
-                    <h3 style="margin:0 0 10px 0;">Reply / Template Send</h3>
+                <div class="incoming-card">
+                    <h3 class="incoming-card-title">Reply / Template Send</h3>
                     <div class="form-field">
                         <div class="field-label">From Sender ID:</div>
                         <div class="custom-input-wrapper">
@@ -204,26 +206,26 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                     <div class="form-field">
                         <div class="field-label">Template Message:</div>
                         <div class="custom-input-wrapper">
-                            <textarea name="template_message" rows="4" style="width:100%;"></textarea>
+                            <textarea name="template_message" rows="4"></textarea>
                         </div>
                     </div>
                     <div class="form-field">
                         <div class="field-label">Extra Numbers (optional, comma/new line):</div>
                         <div class="custom-input-wrapper">
-                            <textarea name="manual_numbers" rows="3" style="width:100%;"></textarea>
+                            <textarea name="manual_numbers" rows="3"></textarea>
                         </div>
                     </div>
                     <div class="form-field">
                         <div class="field-label">Upload Numbers (optional .csv/.xls/.xlsx):</div>
                         <div class="custom-input-wrapper"><input type="file" name="numbers_file"></div>
                     </div>
-                    <button class="send-button" style="cursor:pointer;" type="submit" name="action" value="send_template_selected">
+                    <button class="send-button" type="submit" name="action" value="send_template_selected">
                         Send Template To Selected/Uploaded Numbers
                     </button>
                 </div>
 
-                <div style="margin-top:16px;padding:12px;border:1px solid #eee;border-radius:8px;">
-                    <h3 style="margin:0 0 10px 0;">Auto Reply Template (by Sender ID)</h3>
+                <div class="incoming-card">
+                    <h3 class="incoming-card-title">Auto Reply Template (by Sender ID)</h3>
                     <div class="form-field">
                         <div class="field-label">From Sender ID:</div>
                         <div class="custom-input-wrapper">
@@ -238,7 +240,7 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                     <div class="form-field">
                         <div class="field-label">Auto Reply Text:</div>
                         <div class="custom-input-wrapper">
-                            <textarea name="auto_reply_text" rows="4" style="width:100%;"></textarea>
+                            <textarea name="auto_reply_text" rows="4"></textarea>
                         </div>
                     </div>
                     <div class="form-field">
@@ -249,7 +251,7 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                         <div class="field-label">End Time (optional):</div>
                         <div class="custom-input-wrapper"><input type="time" name="auto_end"></div>
                     </div>
-                    <button class="send-button" style="cursor:pointer;" type="submit" name="action" value="save_auto_reply">
+                    <button class="send-button" type="submit" name="action" value="save_auto_reply">
                         Save Auto Reply
                     </button>
                 </div>
