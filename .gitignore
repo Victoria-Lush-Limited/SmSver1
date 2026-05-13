@@ -9,6 +9,7 @@ error_log
 # Environment
 .env
 .env.*
+scripts/.deploy.env
 
 # Dependencies
 /vendor/
