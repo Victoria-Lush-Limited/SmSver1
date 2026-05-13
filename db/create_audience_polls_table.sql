@@ -1,4 +1,6 @@
 -- Optional: create `audience_polls` when not using `php artisan migrate` (same shape as Laravel migration).
+-- Run once on the SAME MySQL database SmSver1 uses (see db/dblink.php / VLL_DB_* env on the server), e.g.:
+--   mysql -h HOST -u USER -p DBNAME < SmSver1/db/create_audience_polls_table.sql
 CREATE TABLE IF NOT EXISTS `audience_polls` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` varchar(64) NOT NULL,
