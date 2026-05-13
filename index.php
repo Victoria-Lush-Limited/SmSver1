@@ -144,6 +144,7 @@ $vll_page_description = 'Victoria Lush SMS dashboard — credits, compose, conta
                     <a class="dash-action-btn" href="compose.php"><i class="fas fa-envelope"></i> Compose SMS</a>
                     <a class="dash-action-btn dash-action-btn--neutral" href="contacts.php"><i class="fas fa-user-plus"></i> Manage contacts</a>
                     <a class="dash-action-btn dash-action-btn--neutral" href="history.php"><i class="fas fa-history"></i> View history</a>
+                <a class="dash-action-btn dash-action-btn--neutral" href="social_checks.php"><i class="fas fa-hashtag"></i> Social checks</a>
                     <a class="dash-action-btn dash-action-btn--neutral" href="account.php"><i class="fas fa-user-cog"></i> My account</a>
                 </div>
             </div>
