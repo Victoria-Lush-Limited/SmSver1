@@ -102,11 +102,15 @@ $to_date = time();
                 ?>
                 <div class="profile-info">
                     <div><label>Phone Number:</label></div>
-                    <div><?php echo $user['user_id']; ?></div>
+                    <div><?php echo htmlspecialchars((string) $user['user_id'], ENT_QUOTES, 'UTF-8'); ?></div>
+                </div>
+                <div class="profile-info">
+                    <div><label>Email:</label></div>
+                    <div><?php echo htmlspecialchars((string) ($user['email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
                 </div>
                 <div class="profile-info">
                     <div><label>Account Name:</label></div>
-                    <div><?php echo $user['client_name']; ?></div>
+                    <div><?php echo htmlspecialchars((string) $user['client_name'], ENT_QUOTES, 'UTF-8'); ?></div>
                 </div>
                 <div class="profile-info">
                     <div><label>Status:</label></div>

@@ -1,4 +1,4 @@
--- Ledger correction for ALLIANCE FRANCISE ARUSHA (user_id 255786111414, legacy username alliancefrancaisearusha).
+-- Ledger correction for ALLIANCE FRANCISE ARUSHA | director@aftarusha.org | user_id 255786111414 (legacy username alliancefrancaisearusha).
 -- Portal balance = SUM(allocated) - SUM(consumed) on `transactions` (see SmSver1 header.php / index.php).
 -- This insert records +2200 in `consumed` with no allocation, reducing available credits by 2200 (2719 -> 519).
 -- Idempotent guard: runs only when current balance is exactly 2719 for that user_id.
