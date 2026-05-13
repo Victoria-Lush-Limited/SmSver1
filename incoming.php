@@ -311,7 +311,8 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                 <?php } ?>
 
                 <div class="incoming-card">
-                    <h3 class="incoming-card-title">Reply / Template Send</h3>
+                    <h3 class="incoming-card-title">Outbound Reply Tools</h3>
+                    <p style="margin-bottom:10px;">Use this block to send a prepared message to selected incoming numbers, manual entries, or uploaded files.</p>
                     <div class="form-field">
                         <div class="field-label">From Sender ID:</div>
                         <div class="custom-input-wrapper">
@@ -345,7 +346,8 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                 </div>
 
                 <div class="incoming-card">
-                    <h3 class="incoming-card-title">Auto Reply Template (by Sender ID)</h3>
+                    <h3 class="incoming-card-title">Create Auto-Reply Template</h3>
+                    <p style="margin-bottom:10px;">Define sender, reply text, active time window, and optional segment targeting.</p>
                     <div class="form-field">
                         <div class="field-label">From Sender ID:</div>
                         <div class="custom-input-wrapper">
@@ -389,7 +391,8 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                 </div>
 
                 <div class="incoming-card">
-                    <h3 class="incoming-card-title">Manage Auto Reply Templates (CRUD)</h3>
+                    <h3 class="incoming-card-title">Manage Auto-Reply Templates</h3>
+                    <p style="margin-bottom:10px;">Review existing templates, delete any row, or update one template by ID.</p>
                     <div class="incoming-table-wrap">
                         <table class="incoming-table" width="100%" border="0" cellspacing="0" cellpadding="6">
                             <tr class="incoming-table-header">

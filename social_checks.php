@@ -81,13 +81,6 @@ function social_insert_probe($conn, $uid, $phone, $platform, $probe)
 
 function social_backend_base_url()
 {
-    $localFile = __DIR__ . '/db/social_bridge.local.php';
-    if (is_file($localFile)) {
-        $cfg = include $localFile;
-        if (is_array($cfg) && !empty($cfg['base_url'])) {
-            return rtrim(trim((string) $cfg['base_url']), '/');
-        }
-    }
     $v = getenv('VLL_BACKEND_API_BASE');
     if ($v === false || $v === null || trim((string) $v) === '') {
         return 'http://127.0.0.1:8010/api/v1';
@@ -97,13 +90,6 @@ function social_backend_base_url()
 
 function social_backend_token()
 {
-    $localFile = __DIR__ . '/db/social_bridge.local.php';
-    if (is_file($localFile)) {
-        $cfg = include $localFile;
-        if (is_array($cfg) && !empty($cfg['token'])) {
-            return trim((string) $cfg['token']);
-        }
-    }
     $v = getenv('VLL_BACKEND_SOCIAL_TOKEN');
     if ($v === false || $v === null) {
         return '';
@@ -336,15 +322,12 @@ if ($hasTable) {
             <div class="message-failed">Social checks storage is missing. Run backend migration for <code>social_check_results</code>.</div>
         <?php } ?>
         <div class="incoming-card" style="margin-bottom:12px;">
-            <b>Integration mode:</b>
+            <h3 class="incoming-card-title">Integration</h3>
             <?php if (social_backend_token() !== '') { ?>
-                Backend API bridge is enabled (<code>VLL_BACKEND_SOCIAL_TOKEN</code> detected).
+                Backend integration is active (server token configured).
             <?php } else { ?>
-                Local fallback mode (set <code>VLL_BACKEND_SOCIAL_TOKEN</code> to route checks through backend API).
+                Backend integration token is not configured on server. Checks will be stored in local fallback mode.
             <?php } ?>
-            <div style="margin-top:8px;">
-                <a class="send-button incoming-action-btn" href="social_bridge_settings.php">Bridge Settings</a>
-            </div>
         </div>
 
         <form method="get" action="social_checks.php" class="page-form" style="margin-bottom:12px;">
@@ -366,29 +349,12 @@ if ($hasTable) {
             <div class="form-field"><div class="field-label"></div><div class="custom-input-wrapper"><button class="send-button" type="submit">Apply</button></div></div>
         </form>
 
-        <form method="post" action="social_checks.php" class="incoming-card">
-            <h3 class="incoming-card-title">Create Social Check Record</h3>
-            <div class="form-field"><div class="field-label">Phone:</div><div class="custom-input-wrapper"><input type="text" name="phone_number" placeholder="2557xxxxxxx"></div></div>
-            <div class="form-field"><div class="field-label">Platform:</div><div class="custom-input-wrapper">
-                <select name="platform">
-                    <option value="facebook">Facebook</option>
-                    <option value="instagram">Instagram</option>
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="telegram">Telegram</option>
-                    <option value="x">X</option>
-                </select>
-            </div></div>
-            <div class="form-field"><div class="field-label">Status:</div><div class="custom-input-wrapper"><input type="text" name="status" value="checked"></div></div>
-            <div class="form-field"><div class="field-label">Found:</div><div class="custom-input-wrapper">
-                <select name="is_found"><option value="">Unknown</option><option value="1">Found</option><option value="0">Not found</option></select>
-            </div></div>
-            <div class="form-field"><div class="field-label">Profile Name:</div><div class="custom-input-wrapper"><input type="text" name="profile_name"></div></div>
-            <div class="form-field"><div class="field-label">Profile URL:</div><div class="custom-input-wrapper"><input type="text" name="profile_url"></div></div>
-            <button class="send-button" type="submit" name="action" value="create">Create Record</button>
-        </form>
+        <div class="incoming-card">
+            <h3 class="incoming-card-title">Run Checks</h3>
+            <p style="margin-bottom:10px;">Run single or batch checks below. Records are saved automatically for audit and follow-up.</p>
 
-        <form method="post" action="social_checks.php" class="incoming-card">
-            <h3 class="incoming-card-title">Run Social Check</h3>
+        <form method="post" action="social_checks.php" style="margin-bottom:10px;">
+            <h4 style="margin-bottom:8px;">Single Check</h4>
             <div class="form-field"><div class="field-label">Phone:</div><div class="custom-input-wrapper"><input type="text" name="run_phone_number" placeholder="2557xxxxxxx"></div></div>
             <div class="form-field"><div class="field-label">Platform:</div><div class="custom-input-wrapper">
                 <select name="run_platform">
@@ -402,8 +368,8 @@ if ($hasTable) {
             <button class="send-button" type="submit" name="action" value="run_check">Run Check</button>
         </form>
 
-        <form method="post" action="social_checks.php" class="incoming-card">
-            <h3 class="incoming-card-title">Run Batch Social Check</h3>
+        <form method="post" action="social_checks.php">
+            <h4 style="margin-bottom:8px;">Batch Check</h4>
             <div class="form-field"><div class="field-label">Phone Numbers:</div><div class="custom-input-wrapper"><textarea name="run_batch_numbers" rows="4" placeholder="2557xxxxxxx,2557yyyyyyy"></textarea></div></div>
             <div class="form-field">
                 <div class="field-label">Platforms:</div>
@@ -417,8 +383,13 @@ if ($hasTable) {
             </div>
             <button class="send-button" type="submit" name="action" value="run_batch">Run Batch</button>
         </form>
+        </div>
 
         <form method="post" action="social_checks.php">
+            <div class="incoming-card" style="margin-top:14px; margin-bottom:10px;">
+                <h3 class="incoming-card-title">Results</h3>
+                <p>Use checkboxes for bulk delete, or edit a specific row.</p>
+            </div>
             <div class="incoming-table-wrap" style="margin-top:14px;">
                 <table class="incoming-table">
                     <tr class="incoming-table-header">
@@ -462,7 +433,7 @@ if ($hasTable) {
         </form>
 
         <form method="post" action="social_checks.php" class="incoming-card">
-            <h3 class="incoming-card-title">Update Social Check Record</h3>
+            <h3 class="incoming-card-title">Update Selected Record</h3>
             <div class="form-field"><div class="field-label">Record ID:</div><div class="custom-input-wrapper"><input type="number" min="1" name="id" id="edit_id"></div></div>
             <div class="form-field"><div class="field-label">Status:</div><div class="custom-input-wrapper"><input type="text" name="status" id="edit_status"></div></div>
             <div class="form-field"><div class="field-label">Found:</div><div class="custom-input-wrapper"><select name="is_found" id="edit_found"><option value="">Unknown</option><option value="1">Found</option><option value="0">Not found</option></select></div></div>
