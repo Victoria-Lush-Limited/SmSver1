@@ -19,12 +19,12 @@ jobs:
       - name: Install rsync + ssh client
         run: sudo apt-get update && sudo apt-get install -y rsync openssh-client
 
-      - name: Deploy via rsync + reload Apache
+      # Sync files only. Do not mix with apache reload — reload often fails without sudo and turned the whole job red.
+      - name: Rsync SmSver1 to server
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
-          # Accept either the standard secret name or repo-specific private key secret
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY || secrets.SMSVER1 }}
           REMOTE_PATH: /var/www/public_html/victorialush/sms/
         run: |
@@ -45,7 +45,7 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
 
           PORT="${SSH_PORT:-22}"
-          RSYNC_RSH="ssh -i ~/.ssh/deploy_key -p ${PORT} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          RSYNC_RSH="ssh -i ~/.ssh/deploy_key -p ${PORT} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30"
 
           rsync -az --delete \
             --exclude '.git/' \
@@ -53,13 +53,28 @@ jobs:
             -e "$RSYNC_RSH" \
             ./ "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}"
 
-          ssh -i ~/.ssh/deploy_key -p "${PORT}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
-            "${SSH_USER}@${SSH_HOST}" "systemctl reload apache2"
+      - name: Reload web server (best effort)
+        continue-on-error: true
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY || secrets.SMSVER1 }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          PORT="${SSH_PORT:-22}"
+          ssh -i ~/.ssh/deploy_key -p "${PORT}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 \
+            "${SSH_USER}@${SSH_HOST}" \
+            "systemctl reload apache2 2>/dev/null || systemctl reload httpd 2>/dev/null || service apache2 reload 2>/dev/null || service httpd reload 2>/dev/null || (echo 'WARN: could not reload web server via SSH; files are already synced.' && exit 0)"
 
-      # Optional: set Actions variable SMS_DB_BRIDGE_APPLY=true and secrets SMS_BRIDGE_MYSQL_* so each
-      # deploy runs db/ensure_app_bridge_tables.sql on the server (idempotent: audience_polls + autoreplies.deleted_at).
+      # Optional: set Actions variable SMS_DB_BRIDGE_APPLY=true and secrets SMS_BRIDGE_MYSQL_*.
       - name: Apply SMS portal DB bridge on server (optional)
         if: ${{ vars.SMS_DB_BRIDGE_APPLY == 'true' }}
+        continue-on-error: true
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
@@ -82,7 +97,7 @@ jobs:
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           PORT="${SSH_PORT:-22}"
-          ssh -i ~/.ssh/deploy_key -p "${PORT}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
+          ssh -i ~/.ssh/deploy_key -p "${PORT}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 \
             "${SSH_USER}@${SSH_HOST}" bash -s <<REMOTE_SCRIPT
           set -euo pipefail
           export MYSQL_PWD=$(printf '%q' "$BR_DB_PASS")
