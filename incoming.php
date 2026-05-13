@@ -53,10 +53,18 @@ if ($arStatus !== 'active' && $arStatus !== 'archived' && $arStatus !== 'all') {
     $arStatus = 'all';
 }
 
+$hasAutorepliesTable = false;
+$chkArTbl = @mysqli_query($conn, "SHOW TABLES LIKE 'autoreplies'");
+if ($chkArTbl && mysqli_num_rows($chkArTbl) > 0) {
+    $hasAutorepliesTable = true;
+}
+
 $hasAutoDeletedAt = false;
-$chkAutoDel = @mysqli_query($conn, "SHOW COLUMNS FROM `autoreplies` LIKE 'deleted_at'");
-if ($chkAutoDel && mysqli_num_rows($chkAutoDel) > 0) {
-    $hasAutoDeletedAt = true;
+if ($hasAutorepliesTable) {
+    $chkAutoDel = @mysqli_query($conn, "SHOW COLUMNS FROM `autoreplies` LIKE 'deleted_at'");
+    if ($chkAutoDel && mysqli_num_rows($chkAutoDel) > 0) {
+        $hasAutoDeletedAt = true;
+    }
 }
 
 $senders = array();
@@ -361,8 +369,10 @@ $vll_page_description = 'Incoming SMS archive — inbox, read state, exports, an
                 <div class="incoming-card">
                     <h3 class="incoming-card-title">Stored auto-reply templates</h3>
                     <p style="margin-bottom:10px;">Templates are created and edited in the <strong>VLL SMS</strong> app (<code>vll_sms</code>). Removing a template in the app archives it here (soft delete / <code>deleted_at</code>). Use <b>Purge</b> only to permanently delete a row from the database.</p>
-                    <?php if (!$hasAutoDeletedAt) { ?>
-                        <p class="message-failed" style="margin-bottom:10px;">Add soft-delete support: run <code>php artisan migrate</code> on vll_backend or execute <code>SmSver1/db/alter_autoreplies_deleted_at.sql</code> on this database.</p>
+                    <?php if (!$hasAutorepliesTable) { ?>
+                        <p class="message-failed" style="margin-bottom:10px;">The <code>autoreplies</code> table is missing on this database. Run <code>php artisan migrate</code> on vll_backend (same DB as this portal) or import the Laravel schema for autoreplies.</p>
+                    <?php } elseif (!$hasAutoDeletedAt) { ?>
+                        <p class="message-failed" style="margin-bottom:10px;">Add soft-delete support: run <code>php artisan migrate</code> on vll_backend (same database as this portal), or execute <code>SmSver1/db/ensure_app_bridge_tables.sql</code> (or <code>SmSver1/db/alter_autoreplies_deleted_at.sql</code>) on this database.</p>
                     <?php } ?>
                     <div class="incoming-table-wrap">
                         <table class="incoming-table" width="100%" border="0" cellspacing="0" cellpadding="6">

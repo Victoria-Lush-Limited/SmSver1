@@ -55,3 +55,37 @@ jobs:
 
           ssh -i ~/.ssh/deploy_key -p "${PORT}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
             "${SSH_USER}@${SSH_HOST}" "systemctl reload apache2"
+
+      # Optional: set Actions variable SMS_DB_BRIDGE_APPLY=true and secrets SMS_BRIDGE_MYSQL_* so each
+      # deploy runs db/ensure_app_bridge_tables.sql on the server (idempotent: audience_polls + autoreplies.deleted_at).
+      - name: Apply SMS portal DB bridge on server (optional)
+        if: ${{ vars.SMS_DB_BRIDGE_APPLY == 'true' }}
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY || secrets.SMSVER1 }}
+          REMOTE_PATH: /var/www/public_html/victorialush/sms/
+          BR_DB_HOST: ${{ secrets.SMS_BRIDGE_MYSQL_HOST }}
+          BR_DB_USER: ${{ secrets.SMS_BRIDGE_MYSQL_USER }}
+          BR_DB_PASS: ${{ secrets.SMS_BRIDGE_MYSQL_PASSWORD }}
+          BR_DB_NAME: ${{ secrets.SMS_BRIDGE_MYSQL_DATABASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BR_DB_USER:-}" ] || [ -z "${BR_DB_NAME:-}" ] || [ -z "${BR_DB_PASS:-}" ]; then
+            echo "SMS_DB_BRIDGE_APPLY is true but SMS_BRIDGE_MYSQL_USER, SMS_BRIDGE_MYSQL_DATABASE, or SMS_BRIDGE_MYSQL_PASSWORD is empty."
+            exit 1
+          fi
+          BR_HOST="${BR_DB_HOST:-127.0.0.1}"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          PORT="${SSH_PORT:-22}"
+          ssh -i ~/.ssh/deploy_key -p "${PORT}" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
+            "${SSH_USER}@${SSH_HOST}" bash -s <<REMOTE_SCRIPT
+          set -euo pipefail
+          export MYSQL_PWD=$(printf '%q' "$BR_DB_PASS")
+          cd $(printf '%q' "$REMOTE_PATH")
+          mysql -h$(printf '%q' "$BR_HOST") -u$(printf '%q' "$BR_DB_USER") $(printf '%q' "$BR_DB_NAME") < db/ensure_app_bridge_tables.sql
+          REMOTE_SCRIPT

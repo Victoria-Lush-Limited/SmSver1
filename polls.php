@@ -109,7 +109,7 @@ if ($hasTable) {
             <div class="<?php echo $pollsFlashOk ? 'message-sent' : 'message-failed'; ?>"><?php echo htmlspecialchars((string) $_GET['r'], ENT_QUOTES, 'UTF-8'); ?></div>
         <?php } ?>
         <?php if (!$hasTable) { ?>
-            <div class="message-failed">Polls storage is missing. Run <code>php artisan migrate</code> on vll_backend or execute <code>SmSver1/db/create_audience_polls_table.sql</code>.</div>
+            <div class="message-failed">Polls storage is missing. Run <code>php artisan migrate</code> on vll_backend (same database as this portal), or execute <code>SmSver1/db/ensure_app_bridge_tables.sql</code> (or <code>SmSver1/db/create_audience_polls_table.sql</code>) on this database.</div>
         <?php } ?>
 
         <?php if ($hasTable) { ?>
