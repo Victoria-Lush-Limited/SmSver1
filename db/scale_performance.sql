@@ -31,3 +31,6 @@ ALTER TABLE `transactions` ADD INDEX `idx_transactions_user` (`user_id`);
 -- Compose: group → contacts resolution
 ALTER TABLE `group_contacts` ADD INDEX `idx_group_contacts_group` (`group_id`);
 ALTER TABLE `contacts` ADD INDEX `idx_contacts_user` (`user_id`);
+
+-- Autoreply matching (sender + active rows) and portal archive filters
+ALTER TABLE `autoreplies` ADD INDEX `idx_autoreplies_sender_deleted` (`sender_id`, `deleted_at`);

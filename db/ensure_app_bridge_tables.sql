@@ -64,3 +64,16 @@ SET @s = (
 PREPARE stmt FROM @s;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
+
+-- autoreplies.deleted_at (Laravel SoftDeletes — app archives, portal can purge)
+SET @s = (
+  SELECT IF(
+    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'autoreplies' AND COLUMN_NAME = 'deleted_at') > 0,
+    'SELECT ''autoreplies.deleted_at exists'' AS msg',
+    'ALTER TABLE `autoreplies` ADD COLUMN `deleted_at` TIMESTAMP NULL DEFAULT NULL AFTER `updated_at`'
+  )
+);
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

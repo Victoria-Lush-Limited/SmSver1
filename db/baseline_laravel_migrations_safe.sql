@@ -48,3 +48,11 @@ WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_05_10_000
 INSERT INTO `migrations` (`migration`, `batch`)
 SELECT '2026_05_10_120000_add_incoming_segment_and_auto_reply_status', 1 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_05_10_120000_add_incoming_segment_and_auto_reply_status');
+
+INSERT INTO `migrations` (`migration`, `batch`)
+SELECT '2026_05_13_000001_add_deleted_at_to_autoreplies_table', 2 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_05_13_000001_add_deleted_at_to_autoreplies_table');
+
+INSERT INTO `migrations` (`migration`, `batch`)
+SELECT '2026_05_13_120000_create_audience_polls_table', 2 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_05_13_120000_create_audience_polls_table');

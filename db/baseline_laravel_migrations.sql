@@ -19,4 +19,6 @@ INSERT INTO `migrations` (`migration`, `batch`) VALUES
 ('2022_12_12_133305_create_incoming_table', 1),
 ('2026_05_08_090000_create_social_check_results_table', 1),
 ('2026_05_10_000001_add_segment_to_autoreplies_table', 1),
-('2026_05_10_120000_add_incoming_segment_and_auto_reply_status', 1);
+('2026_05_10_120000_add_incoming_segment_and_auto_reply_status', 1),
+('2026_05_13_000001_add_deleted_at_to_autoreplies_table', 2),
+('2026_05_13_120000_create_audience_polls_table', 2);

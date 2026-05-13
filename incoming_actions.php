@@ -1,7 +1,5 @@
 <?php
 include "db/dblink.php";
-include_once "phone_lib.php";
-include_once "simple_xlsx.php";
 
 if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
     header("location:signout.php");
@@ -19,6 +17,10 @@ $redirect = "incoming.php";
 $senderFilter = isset($_POST['sender_filter']) ? trim((string) $_POST['sender_filter']) : '';
 $segmentFilter = isset($_POST['segment_filter']) ? trim((string) $_POST['segment_filter']) : '';
 $readFilter = isset($_POST['read_filter']) ? trim((string) $_POST['read_filter']) : '';
+$arStatus = isset($_POST['ar_status']) ? trim((string) $_POST['ar_status']) : 'all';
+if ($arStatus !== 'active' && $arStatus !== 'archived' && $arStatus !== 'all') {
+    $arStatus = 'all';
+}
 $qs = array();
 if ($senderFilter !== '') {
     $qs[] = 'sender_id=' . urlencode($senderFilter);
@@ -29,6 +31,9 @@ if ($segmentFilter !== '') {
 if ($readFilter === '0' || $readFilter === '1') {
     $qs[] = 'is_read=' . urlencode($readFilter);
 }
+if ($arStatus !== 'all') {
+    $qs[] = 'ar_status=' . urlencode($arStatus);
+}
 if (count($qs) > 0) {
     $redirect .= '?' . implode('&', $qs);
 }
@@ -38,24 +43,6 @@ function vll_incoming_redirect($redirect, $msg)
     $sep = (strpos($redirect, '?') === false) ? '?' : '&';
     header("location:" . $redirect . $sep . "r=" . urlencode($msg));
     exit;
-}
-
-function vll_insert_custom_sms($conn, $uid, $senderId, $phone, $message)
-{
-    $credits = (int) ceil(strlen($message) / 160);
-    if ($credits < 1) {
-        $credits = 1;
-    }
-    $now = time();
-    $phoneEsc = mysqli_real_escape_string($conn, $phone);
-    $senderEsc = mysqli_real_escape_string($conn, $senderId);
-    $msgEsc = mysqli_real_escape_string($conn, $message);
-    $uidEsc = mysqli_real_escape_string($conn, $uid);
-    return (bool) mysqli_query(
-        $conn,
-        "INSERT INTO custom_sms(phone_number,sender_id,message,credits,schedule,start_date,end_date,date_created,attempts,sms_status,user_id) VALUES('" .
-        $phoneEsc . "','" . $senderEsc . "','" . $msgEsc . "','" . $credits . "','None','" . $now . "','" . $now . "','" . $now . "','0','Pending','" . $uidEsc . "')"
-    );
 }
 
 function vll_incoming_has_read_col($conn)
@@ -70,56 +57,6 @@ function vll_incoming_has_read_col($conn)
         $cache = true;
     }
     return $cache;
-}
-
-function vll_autoreplies_has_segment_col($conn)
-{
-    static $cache = null;
-    if ($cache !== null) {
-        return $cache;
-    }
-    $cache = false;
-    $chk = @mysqli_query($conn, "SHOW COLUMNS FROM `autoreplies` LIKE 'segment'");
-    if ($chk && mysqli_num_rows($chk) > 0) {
-        $cache = true;
-    }
-    return $cache;
-}
-
-function vll_parse_uploaded_numbers($fileTmp, $fileName)
-{
-    $numbers = array();
-    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    if ($ext === 'csv' && is_readable($fileTmp)) {
-        $fh = fopen($fileTmp, "r");
-        if ($fh) {
-            while (($row = fgetcsv($fh)) !== false) {
-                if (!isset($row[0])) {
-                    continue;
-                }
-                $n = normalize_recipient_msisdn($row[0]);
-                if ($n !== '') {
-                    $numbers[$n] = true;
-                }
-            }
-            fclose($fh);
-        }
-    } elseif (($ext === 'xls' || $ext === 'xlsx') && is_readable($fileTmp)) {
-        $xlsx = new SimpleXLSX($fileTmp);
-        foreach ($xlsx->rows() as $idx => $row) {
-            if (!isset($row[0])) {
-                continue;
-            }
-            if ($idx === 0 && preg_match('/[a-zA-Z]/', (string) $row[0])) {
-                continue;
-            }
-            $n = normalize_recipient_msisdn($row[0]);
-            if ($n !== '') {
-                $numbers[$n] = true;
-            }
-        }
-    }
-    return array_keys($numbers);
 }
 
 function vll_sender_is_allowed($conn, $uid, $senderId)
@@ -195,83 +132,6 @@ if ($action === 'mark_read_filtered') {
     vll_incoming_redirect($redirect, "Marked " . $changed . " filtered message(s) as read.");
 }
 
-if ($action === 'save_auto_reply') {
-    $senderId = trim((string) ($_POST['auto_sender_id'] ?? ''));
-    $reply = trim((string) ($_POST['auto_reply_text'] ?? ''));
-    $start = trim((string) ($_POST['auto_start'] ?? ''));
-    $end = trim((string) ($_POST['auto_end'] ?? ''));
-    $segment = trim((string) ($_POST['auto_segment'] ?? ''));
-    if ($senderId === '' || $reply === '' || $start === '') {
-        vll_incoming_redirect($redirect, "Sender ID, auto-reply text and start time are required.");
-    }
-    $senderEsc = mysqli_real_escape_string($conn, $senderId);
-    $replyEsc = mysqli_real_escape_string($conn, $reply);
-    $startEsc = mysqli_real_escape_string($conn, $start . ":00");
-    $endSql = "NULL";
-    if ($end !== '') {
-        $endSql = "'" . mysqli_real_escape_string($conn, $end . ":00") . "'";
-    }
-    if (vll_autoreplies_has_segment_col($conn)) {
-        $segSql = "NULL";
-        if ($segment !== '') {
-            $segSql = "'" . mysqli_real_escape_string($conn, $segment) . "'";
-        }
-        mysqli_query(
-            $conn,
-            "INSERT INTO autoreplies(sender_id,reply,scheduled_time,end_schedule,segment,created_at,updated_at) VALUES('" .
-            $senderEsc . "','" . $replyEsc . "','" . $startEsc . "'," . $endSql . "," . $segSql . ",NOW(),NOW())"
-        );
-    } else {
-        mysqli_query(
-            $conn,
-            "INSERT INTO autoreplies(sender_id,reply,scheduled_time,end_schedule,created_at,updated_at) VALUES('" .
-            $senderEsc . "','" . $replyEsc . "','" . $startEsc . "'," . $endSql . ",NOW(),NOW())"
-        );
-    }
-    vll_incoming_redirect($redirect, "Auto-reply template saved.");
-}
-
-if ($action === 'update_auto_reply') {
-    $autoId = (int) ($_POST['update_auto_id'] ?? 0);
-    $reply = trim((string) ($_POST['update_auto_reply_text'] ?? ''));
-    $start = trim((string) ($_POST['update_auto_start'] ?? ''));
-    $end = trim((string) ($_POST['update_auto_end'] ?? ''));
-    $segment = trim((string) ($_POST['update_auto_segment'] ?? ''));
-    if ($autoId < 1 || $reply === '' || $start === '') {
-        vll_incoming_redirect($redirect, "Template ID, new reply text and new start time are required.");
-    }
-    $rs = mysqli_query($conn, "SELECT id,sender_id FROM autoreplies WHERE id='" . $autoId . "' LIMIT 1");
-    if (!$rs || mysqli_num_rows($rs) < 1) {
-        vll_incoming_redirect($redirect, "Auto-reply template not found.");
-    }
-    $row = mysqli_fetch_assoc($rs);
-    if (!vll_sender_is_allowed($conn, $uid, (string) $row['sender_id'])) {
-        vll_incoming_redirect($redirect, "You are not allowed to update this auto-reply template.");
-    }
-    $replyEsc = mysqli_real_escape_string($conn, $reply);
-    $startEsc = mysqli_real_escape_string($conn, $start . ":00");
-    $endSql = "NULL";
-    if ($end !== '') {
-        $endSql = "'" . mysqli_real_escape_string($conn, $end . ":00") . "'";
-    }
-    if (vll_autoreplies_has_segment_col($conn)) {
-        $segSql = "NULL";
-        if ($segment !== '') {
-            $segSql = "'" . mysqli_real_escape_string($conn, $segment) . "'";
-        }
-        mysqli_query(
-            $conn,
-            "UPDATE autoreplies SET reply='" . $replyEsc . "', scheduled_time='" . $startEsc . "', end_schedule=" . $endSql . ", segment=" . $segSql . ", updated_at=NOW() WHERE id='" . $autoId . "' LIMIT 1"
-        );
-    } else {
-        mysqli_query(
-            $conn,
-            "UPDATE autoreplies SET reply='" . $replyEsc . "', scheduled_time='" . $startEsc . "', end_schedule=" . $endSql . ", updated_at=NOW() WHERE id='" . $autoId . "' LIMIT 1"
-        );
-    }
-    vll_incoming_redirect($redirect, "Auto-reply template updated.");
-}
-
 if ($action === 'delete_auto_reply') {
     $autoId = isset($_GET['auto_id']) ? (int) $_GET['auto_id'] : 0;
     if ($autoId < 1) {
@@ -286,71 +146,7 @@ if ($action === 'delete_auto_reply') {
         vll_incoming_redirect($redirect, "You are not allowed to delete this auto-reply template.");
     }
     mysqli_query($conn, "DELETE FROM autoreplies WHERE id='" . $autoId . "' LIMIT 1");
-    vll_incoming_redirect($redirect, "Auto-reply template deleted.");
-}
-
-if ($action === 'send_template_selected') {
-    $senderId = trim((string) ($_POST['sender_id'] ?? ''));
-    $msg = trim((string) ($_POST['template_message'] ?? ''));
-    if ($senderId === '' || $msg === '') {
-        vll_incoming_redirect($redirect, "Sender ID and template message are required.");
-    }
-
-    $phones = array();
-
-    if (!empty($_POST['selected_ids']) && is_array($_POST['selected_ids'])) {
-        $ids = array_map('intval', $_POST['selected_ids']);
-        $ids = array_filter($ids, function ($v) {
-            return $v > 0;
-        });
-        if (count($ids) > 0) {
-            $idCsv = implode(",", $ids);
-            $rs = mysqli_query($conn, "SELECT sender FROM incoming WHERE user_id='" . $uid . "' AND id IN (" . $idCsv . ")");
-            if ($rs) {
-                while ($r = mysqli_fetch_assoc($rs)) {
-                    $n = normalize_recipient_msisdn((string) $r['sender']);
-                    if ($n !== '') {
-                        $phones[$n] = true;
-                    }
-                }
-            }
-        }
-    }
-
-    $manual = trim((string) ($_POST['manual_numbers'] ?? ''));
-    if ($manual !== '') {
-        $parts = preg_split('/[\s,;]+/', $manual);
-        foreach ($parts as $p) {
-            $n = normalize_recipient_msisdn((string) $p);
-            if ($n !== '') {
-                $phones[$n] = true;
-            }
-        }
-    }
-
-    if (isset($_FILES['numbers_file']) && is_uploaded_file($_FILES['numbers_file']['tmp_name'])) {
-        $uploaded = vll_parse_uploaded_numbers($_FILES['numbers_file']['tmp_name'], (string) $_FILES['numbers_file']['name']);
-        foreach ($uploaded as $n) {
-            $phones[$n] = true;
-        }
-    }
-
-    if (count($phones) < 1) {
-        vll_incoming_redirect($redirect, "No recipient numbers found.");
-    }
-
-    $queued = 0;
-    foreach (array_keys($phones) as $phone) {
-        if (vll_insert_custom_sms($conn, $uid, $senderId, $phone, $msg)) {
-            $queued++;
-        }
-    }
-
-    if ($queued < 1) {
-        vll_incoming_redirect($redirect, "Failed to queue template send.");
-    }
-    header("location:preview.php?r=" . urlencode("Queued " . $queued . " message(s). Review and click Send."));
-    exit;
+    vll_incoming_redirect($redirect, "Auto-reply template purged from database.");
 }
 
 vll_incoming_redirect($redirect, "Unsupported action.");

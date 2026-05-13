@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 include "db/dblink.php";
 
 if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
@@ -48,6 +48,17 @@ if ($autoRefresh < 10) {
     $autoRefresh = 0;
 }
 
+$arStatus = isset($_GET['ar_status']) ? trim((string) $_GET['ar_status']) : 'all';
+if ($arStatus !== 'active' && $arStatus !== 'archived' && $arStatus !== 'all') {
+    $arStatus = 'all';
+}
+
+$hasAutoDeletedAt = false;
+$chkAutoDel = @mysqli_query($conn, "SHOW COLUMNS FROM `autoreplies` LIKE 'deleted_at'");
+if ($chkAutoDel && mysqli_num_rows($chkAutoDel) > 0) {
+    $hasAutoDeletedAt = true;
+}
+
 $senders = array();
 $rsSenders = mysqli_query($conn, "SELECT sender_id FROM senders WHERE id_status='Active' AND (user_id='" . $uid . "' OR id_type='Public' OR id_type='Global') ORDER BY sender_id ASC");
 if ($rsSenders) {
@@ -61,7 +72,18 @@ $autoWhere = "1=1";
 if ($senderFilter !== '') {
     $autoWhere .= " AND sender_id='" . $senderFilterEsc . "'";
 }
-$rsAuto = mysqli_query($conn, "SELECT id,sender_id,reply,scheduled_time,end_schedule,segment FROM autoreplies WHERE " . $autoWhere . " ORDER BY sender_id ASC, scheduled_time ASC, id DESC LIMIT 200");
+if ($hasAutoDeletedAt) {
+    if ($arStatus === 'active') {
+        $autoWhere .= " AND deleted_at IS NULL";
+    } elseif ($arStatus === 'archived') {
+        $autoWhere .= " AND deleted_at IS NOT NULL";
+    }
+}
+$autoSelect = "id,sender_id,reply,scheduled_time,end_schedule,segment";
+if ($hasAutoDeletedAt) {
+    $autoSelect .= ",deleted_at";
+}
+$rsAuto = mysqli_query($conn, "SELECT " . $autoSelect . " FROM autoreplies WHERE " . $autoWhere . " ORDER BY sender_id ASC, scheduled_time ASC, id DESC LIMIT 200");
 if ($rsAuto) {
     while ($a = mysqli_fetch_assoc($rsAuto)) {
         $autoReplyRows[] = $a;
@@ -88,14 +110,22 @@ if ($incomingHasRead) {
     }
 }
 
+$incomingSelect = "id, recipient, sender, message, created_at";
+if ($incomingExtended) {
+    $incomingSelect .= ", segment, auto_reply_status";
+}
+if ($incomingHasRead) {
+    $incomingSelect .= ", is_read";
+}
+
 $rows = array();
-$rsIncoming = mysqli_query($conn, "SELECT * FROM incoming " . $where . " ORDER BY id DESC LIMIT 1000");
+$rsIncoming = mysqli_query($conn, "SELECT " . $incomingSelect . " FROM incoming " . $where . " ORDER BY id DESC LIMIT 1000");
 if ($rsIncoming) {
     while ($r = mysqli_fetch_assoc($rsIncoming)) {
         $rows[] = $r;
     }
 }
-$vll_page_description = 'Incoming SMS inbox — replies and audience messages for your sender IDs.';
+$vll_page_description = 'Incoming SMS archive — inbox, read state, exports, and stored auto-reply templates (compose in the app).';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -115,6 +145,9 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
     <div class="menu"><?php include "menu.php"; ?></div>
     <div class="content-wrapper">
         <div class="page-title">Incoming Messages</div>
+        <p class="page-intro" style="margin:0 0 12px 0; color:#444; max-width:720px;">
+            Compose and edit auto-replies in the <strong>VLL SMS</strong> app (package <code>vll_sms</code>). This screen keeps the audit trail, CSV exports, read state, and optional purging of stored rows.
+        </p>
 
         <?php if (isset($_GET['r']) && (string) $_GET['r'] !== '') { ?>
             <div class="message-failed"><?php echo htmlspecialchars((string) $_GET['r'], ENT_QUOTES, 'UTF-8'); ?></div>
@@ -206,6 +239,18 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                     </div>
                 </div>
                 <?php } ?>
+                <?php if ($hasAutoDeletedAt) { ?>
+                <div class="form-field">
+                    <div class="field-label">Auto-reply archive:</div>
+                    <div class="custom-input-wrapper">
+                        <select name="ar_status" id="ar_status">
+                            <option value="all" <?php echo $arStatus === 'all' ? 'selected' : ''; ?>>All (active + archived)</option>
+                            <option value="active" <?php echo $arStatus === 'active' ? 'selected' : ''; ?>>Active only</option>
+                            <option value="archived" <?php echo $arStatus === 'archived' ? 'selected' : ''; ?>>Archived only (removed in app)</option>
+                        </select>
+                    </div>
+                </div>
+                <?php } ?>
                 <ul class="field-list"><li><button type="submit" class="send-button">Apply Filters</button></li></ul>
             </form>
 
@@ -218,6 +263,7 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                 if ($senderFilter !== '') { $liveUrl .= '&sender_id=' . urlencode($senderFilter); }
                 if ($segmentFilter !== '') { $liveUrl .= '&segment=' . urlencode($segmentFilter); }
                 if ($readFilter !== '') { $liveUrl .= '&is_read=' . urlencode($readFilter); }
+                if ($hasAutoDeletedAt && $arStatus !== 'all') { $liveUrl .= '&ar_status=' . urlencode($arStatus); }
                 ?>
                 <?php if ($autoRefresh > 0) { ?>
                     <a href="incoming.php<?php
@@ -225,6 +271,7 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                         if ($senderFilter !== '') { $parts[] = 'sender_id=' . urlencode($senderFilter); }
                         if ($segmentFilter !== '') { $parts[] = 'segment=' . urlencode($segmentFilter); }
                         if ($readFilter !== '') { $parts[] = 'is_read=' . urlencode($readFilter); }
+                        if ($hasAutoDeletedAt && $arStatus !== 'all') { $parts[] = 'ar_status=' . urlencode($arStatus); }
                         echo count($parts) ? ('?' . implode('&', $parts)) : '';
                     ?>" class="send-button incoming-action-btn">Live Sync: ON (Stop)</a>
                 <?php } else { ?>
@@ -248,10 +295,11 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                 <a href="<?php echo htmlspecialchars($repBase . '&report=failed&mode=phones', ENT_QUOTES, 'UTF-8'); ?>" class="send-button incoming-action-btn">Phones · failed only</a>
             </div>
 
-            <form method="post" action="incoming_actions.php" enctype="multipart/form-data">
+            <form method="post" action="incoming_actions.php">
                 <input type="hidden" name="sender_filter" value="<?php echo htmlspecialchars($senderFilter, ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="segment_filter" value="<?php echo htmlspecialchars($segmentFilter, ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="read_filter" value="<?php echo htmlspecialchars($readFilter, ENT_QUOTES, 'UTF-8'); ?>">
+                <input type="hidden" name="ar_status" value="<?php echo htmlspecialchars($arStatus, ENT_QUOTES, 'UTF-8'); ?>">
 
                 <div class="incoming-table-wrap">
                 <table class="incoming-table" width="100%" border="0" cellspacing="0" cellpadding="6">
@@ -311,88 +359,11 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                 <?php } ?>
 
                 <div class="incoming-card">
-                    <h3 class="incoming-card-title">Outbound Reply Tools</h3>
-                    <p style="margin-bottom:10px;">Use this block to send a prepared message to selected incoming numbers, manual entries, or uploaded files.</p>
-                    <div class="form-field">
-                        <div class="field-label">From Sender ID:</div>
-                        <div class="custom-input-wrapper">
-                            <select name="sender_id">
-                                <option value="">Select sender ID</option>
-                                <?php foreach ($senders as $sid) { ?>
-                                    <option value="<?php echo htmlspecialchars($sid, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($sid, ENT_QUOTES, 'UTF-8'); ?></option>
-                                <?php } ?>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">Template Message:</div>
-                        <div class="custom-input-wrapper">
-                            <textarea name="template_message" rows="4"></textarea>
-                        </div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">Extra Numbers (optional, comma/new line):</div>
-                        <div class="custom-input-wrapper">
-                            <textarea name="manual_numbers" rows="3"></textarea>
-                        </div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">Upload Numbers (optional .csv/.xls/.xlsx):</div>
-                        <div class="custom-input-wrapper"><input type="file" name="numbers_file"></div>
-                    </div>
-                    <button class="send-button" type="submit" name="action" value="send_template_selected">
-                        Send Template To Selected/Uploaded Numbers
-                    </button>
-                </div>
-
-                <div class="incoming-card">
-                    <h3 class="incoming-card-title">Create Auto-Reply Template</h3>
-                    <p style="margin-bottom:10px;">Define sender, reply text, active time window, and optional segment targeting.</p>
-                    <div class="form-field">
-                        <div class="field-label">From Sender ID:</div>
-                        <div class="custom-input-wrapper">
-                            <select name="auto_sender_id">
-                                <option value="">Select sender ID</option>
-                                <?php foreach ($senders as $sid) { ?>
-                                    <option value="<?php echo htmlspecialchars($sid, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($sid, ENT_QUOTES, 'UTF-8'); ?></option>
-                                <?php } ?>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">Auto Reply Text:</div>
-                        <div class="custom-input-wrapper">
-                            <textarea name="auto_reply_text" rows="4"></textarea>
-                        </div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">Start Time:</div>
-                        <div class="custom-input-wrapper"><input type="time" name="auto_start" value="08:00"></div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">End Time (optional):</div>
-                        <div class="custom-input-wrapper"><input type="time" name="auto_end"></div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">Show Segment:</div>
-                        <div class="custom-input-wrapper">
-                            <select name="auto_segment">
-                                <option value="">All segments (fallback)</option>
-                                <option value="Morning show">Morning show</option>
-                                <option value="Afternoon show">Afternoon show</option>
-                                <option value="Evening show">Evening show</option>
-                                <option value="Night show">Night show</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button class="send-button" type="submit" name="action" value="save_auto_reply">
-                        Save Auto Reply
-                    </button>
-                </div>
-
-                <div class="incoming-card">
-                    <h3 class="incoming-card-title">Manage Auto-Reply Templates</h3>
-                    <p style="margin-bottom:10px;">Review existing templates, delete any row, or update one template by ID.</p>
+                    <h3 class="incoming-card-title">Stored auto-reply templates</h3>
+                    <p style="margin-bottom:10px;">Templates are created and edited in the <strong>VLL SMS</strong> app (<code>vll_sms</code>). Removing a template in the app archives it here (soft delete / <code>deleted_at</code>). Use <b>Purge</b> only to permanently delete a row from the database.</p>
+                    <?php if (!$hasAutoDeletedAt) { ?>
+                        <p class="message-failed" style="margin-bottom:10px;">Add soft-delete support: run <code>php artisan migrate</code> on vll_backend or execute <code>SmSver1/db/alter_autoreplies_deleted_at.sql</code> on this database.</p>
+                    <?php } ?>
                     <div class="incoming-table-wrap">
                         <table class="incoming-table" width="100%" border="0" cellspacing="0" cellpadding="6">
                             <tr class="incoming-table-header">
@@ -402,10 +373,16 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                                 <td>Start</td>
                                 <td>End</td>
                                 <td>Segment</td>
+                                <?php if ($hasAutoDeletedAt) { ?>
+                                <td>Status</td>
+                                <?php } ?>
                                 <td>Actions</td>
                             </tr>
+                            <?php
+                            $autoColspan = $hasAutoDeletedAt ? 8 : 7;
+                            ?>
                             <?php if (count($autoReplyRows) === 0) { ?>
-                                <tr><td colspan="7" class="incoming-empty">No auto-reply templates found.</td></tr>
+                                <tr><td colspan="<?php echo (int) $autoColspan; ?>" class="incoming-empty">No auto-reply templates found.</td></tr>
                             <?php } ?>
                             <?php foreach ($autoReplyRows as $ar) { ?>
                                 <tr class="incoming-row">
@@ -415,45 +392,16 @@ $vll_page_description = 'Incoming SMS inbox — replies and audience messages fo
                                     <td><?php echo htmlspecialchars(substr((string) $ar['scheduled_time'], 0, 5), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?php echo htmlspecialchars((string) ($ar['end_schedule'] ? substr((string) $ar['end_schedule'], 0, 5) : ''), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?php echo htmlspecialchars((string) ($ar['segment'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <?php if ($hasAutoDeletedAt) { ?>
+                                    <td><?php echo !empty($ar['deleted_at']) ? 'Archived' : 'Active'; ?></td>
+                                    <?php } ?>
                                     <td>
-                                        <button name="action" value="delete_auto_reply" type="submit" formaction="incoming_actions.php?auto_id=<?php echo (int) $ar['id']; ?>" class="incoming-delete-btn">Delete</button>
+                                        <button name="action" value="delete_auto_reply" type="submit" formaction="incoming_actions.php?auto_id=<?php echo (int) $ar['id']; ?>" class="incoming-delete-btn">Purge</button>
                                     </td>
                                 </tr>
                             <?php } ?>
                         </table>
                     </div>
-
-                    <div class="form-field" style="margin-top:12px;">
-                        <div class="field-label">Update Template ID:</div>
-                        <div class="custom-input-wrapper"><input type="number" min="1" name="update_auto_id"></div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">New Reply Text:</div>
-                        <div class="custom-input-wrapper"><textarea name="update_auto_reply_text" rows="3"></textarea></div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">New Start Time:</div>
-                        <div class="custom-input-wrapper"><input type="time" name="update_auto_start"></div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">New End Time (optional):</div>
-                        <div class="custom-input-wrapper"><input type="time" name="update_auto_end"></div>
-                    </div>
-                    <div class="form-field">
-                        <div class="field-label">New Segment:</div>
-                        <div class="custom-input-wrapper">
-                            <select name="update_auto_segment">
-                                <option value="">All segments (fallback)</option>
-                                <option value="Morning show">Morning show</option>
-                                <option value="Afternoon show">Afternoon show</option>
-                                <option value="Evening show">Evening show</option>
-                                <option value="Night show">Night show</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button class="send-button" type="submit" name="action" value="update_auto_reply">
-                        Update Auto Reply
-                    </button>
                 </div>
             </form>
         </div>
