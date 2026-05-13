@@ -14,13 +14,13 @@ if (!$found) {
 
 $user = mysqli_fetch_assoc($q);
 
+include_once __DIR__ . '/inc/ledger_balance.php';
+
 $q = mysqli_query($conn, "SELECT SUM(credits) AS credits FROM custom_sms WHERE user_id='" . $uid . "'");
 $required = mysqli_fetch_assoc($q);
 $consumed = (int) ($required["credits"] ?? 0);
 
-$q = mysqli_query($conn, "SELECT (SUM(allocated)-SUM(consumed)) AS balance FROM transactions WHERE user_id='" . $uid . "'");
-$bal = mysqli_fetch_assoc($q);
-$balance = (float) ($bal["balance"] ?? 0);
+$balance = vll_ledger_balance_for_user($conn, $user);
 
 if ($consumed <= $balance && $consumed > 0) {
     $now = time();

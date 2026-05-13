@@ -20,9 +20,8 @@ $dash_uid = mysqli_real_escape_string($conn, (string) $_SESSION['user_id']);
 $now_ts = time();
 $month_start = strtotime(date('Y-m-01 00:00:00'));
 
-$b = mysqli_query($conn, "SELECT (SUM(allocated)-SUM(consumed)) AS balance FROM transactions WHERE user_id='" . $dash_uid . "'");
-$bal_row = $b ? mysqli_fetch_assoc($b) : null;
-$sms_balance = ($bal_row && $bal_row['balance'] !== null && $bal_row['balance'] !== '') ? (float) $bal_row['balance'] : 0;
+include_once __DIR__ . '/inc/ledger_balance.php';
+$sms_balance = vll_ledger_balance_for_user($conn, isset($user) ? $user : null);
 
 $dash_counts = array(
     'contacts' => 0,

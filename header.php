@@ -1,7 +1,6 @@
 <?php
-    $b = mysqli_query($conn, "SELECT (SUM(allocated)-SUM(consumed)) AS balance FROM transactions WHERE user_id='" . $_SESSION['user_id'] . "'");
-    $bal = mysqli_fetch_assoc($b);
-    $sms_balance = $bal['balance'];
+    include_once __DIR__ . '/inc/ledger_balance.php';
+    $sms_balance = vll_ledger_balance_for_user($conn, isset($user) ? $user : null);
 ?>
 
 <header>

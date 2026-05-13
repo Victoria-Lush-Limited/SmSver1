@@ -17,6 +17,8 @@ if (!$found) {
 
 $user = mysqli_fetch_assoc($q);
 
+include_once __DIR__ . '/inc/ledger_balance.php';
+
 $contacts = explode(",", mysqli_real_escape_string($conn, $_POST['contacts']));
 $groups = explode(",", mysqli_real_escape_string($conn, $_POST['groups']));
 
@@ -166,9 +168,7 @@ switch ($schedule) {
 
         $date_created = strtotime(date("d-m-Y", $start_date) . " " . $send_hour . ":" . $send_minute);
 
-        $q = mysqli_query($conn, "SELECT (SUM(allocated)-SUM(consumed)) AS balance FROM transactions WHERE user_id='" . $_SESSION['user_id'] . "'");
-        $bal = mysqli_fetch_assoc($q);
-        $balance = $bal['balance'];
+        $balance = vll_ledger_balance_for_user($conn, $user);
         if ($consumed <= $balance) {
             if (queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $consumed, $now)) {
                 header("location:compose.php?r=" . urlencode($sent_ok_msg));
@@ -195,9 +195,7 @@ switch ($schedule) {
             $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
             $next_date =  strtotime("+1 days", $next_date);
         }
-        $q = mysqli_query($conn, "SELECT (SUM(allocated)-SUM(consumed)) AS balance FROM transactions WHERE user_id='" . $_SESSION['user_id'] . "'");
-        $bal = mysqli_fetch_assoc($q);
-        $balance = $bal['balance'];
+        $balance = vll_ledger_balance_for_user($conn, $user);
         if ($consumed <= $balance) {
             $next_date = $start_date;
             while ($next_date <= $end_date) {
@@ -231,9 +229,7 @@ switch ($schedule) {
             $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
             $next_date =  strtotime("+1 weeks", $next_date);
         }
-        $q = mysqli_query($conn, "SELECT (SUM(allocated)-SUM(consumed)) AS balance FROM transactions WHERE user_id='" . $_SESSION['user_id'] . "'");
-        $bal = mysqli_fetch_assoc($q);
-        $balance = $bal['balance'];
+        $balance = vll_ledger_balance_for_user($conn, $user);
         if ($consumed <= $balance) {
             $next_date = $start_date;
             while ($next_date <= $end_date) {
@@ -267,9 +263,7 @@ switch ($schedule) {
             $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
             $next_date =  strtotime("+1 months", $next_date);
         }
-        $q = mysqli_query($conn, "SELECT (SUM(allocated)-SUM(consumed)) AS balance FROM transactions WHERE user_id='" . $_SESSION['user_id'] . "'");
-        $bal = mysqli_fetch_assoc($q);
-        $balance = $bal['balance'];
+        $balance = vll_ledger_balance_for_user($conn, $user);
         if ($consumed <= $balance) {
             $next_date = $start_date;
             while ($next_date <= $end_date) {
