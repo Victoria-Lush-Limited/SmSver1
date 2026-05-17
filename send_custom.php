@@ -20,7 +20,14 @@ $q = mysqli_query($conn, "SELECT SUM(credits) AS credits FROM custom_sms WHERE u
 $required = mysqli_fetch_assoc($q);
 $consumed = (int) ($required["credits"] ?? 0);
 
-$balance = vll_ledger_balance_for_user($conn, $user);
+$billing_user = $user;
+$qs = mysqli_query($conn, "SELECT sender_id FROM custom_sms WHERE user_id='" . $uid . "' LIMIT 1");
+if ($qs && mysqli_num_rows($qs) > 0) {
+    $senderRow = mysqli_fetch_assoc($qs);
+    $billing_user = vll_ledger_billing_user_row($conn, $user, (string) ($senderRow['sender_id'] ?? ''));
+}
+
+$balance = vll_ledger_balance_for_user($conn, $billing_user);
 
 if ($consumed <= $balance && $consumed > 0) {
     $now = time();
@@ -79,9 +86,8 @@ if ($consumed <= $balance && $consumed > 0) {
             throw new Exception("No rows queued from custom_sms");
         }
 
-        $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . mysqli_real_escape_string($conn, $user["user_id"]) . "','" . (int) $consumed . "','" . (int) $now . "')");
-        if (!$q) {
-            throw new Exception(mysqli_error($conn));
+        if (!vll_ledger_record_consumed($conn, $billing_user, $consumed, $now)) {
+            throw new Exception('Failed to record consumed credits');
         }
         $q = mysqli_query($conn, "DELETE FROM custom_sms WHERE user_id='" . $uid . "'");
         if (!$q) {

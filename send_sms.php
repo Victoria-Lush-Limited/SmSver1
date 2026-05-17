@@ -69,6 +69,8 @@ $sender_raw = vll_normalize_outgoing_sender_id($sender_raw);
 $sender_id = mysqli_real_escape_string($conn, $sender_raw);
 
 $user_id = $user['user_id'];
+$billing_user = vll_ledger_billing_user_row($conn, $user, $sender_raw);
+$billing_user_id = mysqli_real_escape_string($conn, vll_ledger_billing_user_id_for_row($conn, $billing_user));
 $sms_status = "Pending";
 
 
@@ -91,12 +93,41 @@ $no_recipients_msg = ($recipient_list_all_count > 0)
     ? 'No supported recipients found. Use numbers with country code 255 (Tanzania), 254 (Kenya), or 256 (Uganda).'
     : 'No valid recipients found';
 
-function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $consumed, $now)
+function queue_outgoing_batch($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id)
 {
-    $lockToken = "vllsmsq_" . md5($user_id);
     $chunk = vll_send_insert_chunk_size();
     $attempts = 0;
+    $queued = 0;
+    $buf = array();
 
+    for ($i = 0; $i < count($recipient_list); $i++) {
+        $phone_number = trim($recipient_list[$i]);
+        if ($phone_number === "") {
+            continue;
+        }
+        $p = mysqli_real_escape_string($conn, $phone_number);
+        $buf[] = "('" . $p . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "','Queued for provider')";
+        if (count($buf) >= $chunk) {
+            if (!vll_flush_outgoing_values($conn, $buf)) {
+                throw new Exception(mysqli_error($conn));
+            }
+            $queued += count($buf);
+            $buf = array();
+        }
+    }
+    if (count($buf) > 0) {
+        if (!vll_flush_outgoing_values($conn, $buf)) {
+            throw new Exception(mysqli_error($conn));
+        }
+        $queued += count($buf);
+    }
+
+    return $queued;
+}
+
+function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $billing_user_id, $consumed, $now)
+{
+    $lockToken = "vllsmsq_" . md5($user_id . '|' . $billing_user_id);
     $gotLock = false;
     $lr = mysqli_query($conn, "SELECT GET_LOCK('" . $lockToken . "', 50) AS gl");
     $grow = $lr ? mysqli_fetch_assoc($lr) : null;
@@ -109,37 +140,13 @@ function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message,
     $ok = false;
     mysqli_begin_transaction($conn);
     try {
-        $queued = 0;
-        $buf = array();
-
-        for ($i = 0; $i < count($recipient_list); $i++) {
-            $phone_number = trim($recipient_list[$i]);
-            if ($phone_number === "") {
-                continue;
-            }
-            $p = mysqli_real_escape_string($conn, $phone_number);
-            $buf[] = "('" . $p . "','" . $sender_id . "','" . $message . "','" . $credits . "','" . $schedule . "','" . $start_date . "','" . $end_date . "','" . $date_created . "','" . $attempts . "','" . $sms_status . "','" . $user_id . "','Queued for provider')";
-            if (count($buf) >= $chunk) {
-                if (!vll_flush_outgoing_values($conn, $buf)) {
-                    throw new Exception(mysqli_error($conn));
-                }
-                $queued += count($buf);
-                $buf = array();
-            }
-        }
-        if (count($buf) > 0) {
-            if (!vll_flush_outgoing_values($conn, $buf)) {
-                throw new Exception(mysqli_error($conn));
-            }
-            $queued += count($buf);
-        }
-
+        $queued = queue_outgoing_batch($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id);
         if ($queued === 0) {
             throw new Exception("No valid recipients were queued");
         }
 
         if ($consumed > 0) {
-            $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $user_id . "','" . $consumed . "','" . $now . "')");
+            $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $billing_user_id . "','" . (int) $consumed . "','" . (int) $now . "')");
             if (!$q) {
                 throw new Exception(mysqli_error($conn));
             }
@@ -150,6 +157,62 @@ function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message,
     } catch (Exception $e) {
         mysqli_rollback($conn);
         error_log("send_sms queue failure for user_id=" . $user_id . ": " . $e->getMessage());
+    }
+    if ($gotLock) {
+        mysqli_query($conn, "SELECT RELEASE_LOCK('" . $lockToken . "')");
+    }
+    return $ok;
+}
+
+function queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user_id, $run_dates, $consumed, $now)
+{
+    if (!is_array($run_dates) || count($run_dates) < 1) {
+        return false;
+    }
+
+    $lockToken = "vllsmssch_" . md5($user_id . '|' . $billing_user_id);
+    $gotLock = false;
+    $lr = mysqli_query($conn, "SELECT GET_LOCK('" . $lockToken . "', 50) AS gl");
+    $grow = $lr ? mysqli_fetch_assoc($lr) : null;
+    if (!$lr || !isset($grow["gl"]) || (int) $grow["gl"] !== 1) {
+        error_log("send_sms scheduled: GET_LOCK failed for user_id=" . $user_id);
+        return false;
+    }
+    $gotLock = true;
+
+    $ok = false;
+    mysqli_begin_transaction($conn);
+    try {
+        $queued = 0;
+        foreach ($run_dates as $date_created) {
+            $queued += queue_outgoing_batch(
+                $conn,
+                $recipient_list,
+                $sender_id,
+                $message,
+                $credits,
+                $schedule,
+                $start_date,
+                $end_date,
+                (int) $date_created,
+                $sms_status,
+                $user_id
+            );
+        }
+        if ($queued === 0) {
+            throw new Exception("No valid recipients were queued for schedule");
+        }
+        if ((int) $consumed > 0) {
+            $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $billing_user_id . "','" . (int) $consumed . "','" . (int) $now . "')");
+            if (!$q) {
+                throw new Exception(mysqli_error($conn));
+            }
+        }
+        mysqli_commit($conn);
+        $ok = true;
+    } catch (Exception $e) {
+        mysqli_rollback($conn);
+        error_log("send_sms scheduled failure for user_id=" . $user_id . ": " . $e->getMessage());
     }
     if ($gotLock) {
         mysqli_query($conn, "SELECT RELEASE_LOCK('" . $lockToken . "')");
@@ -168,9 +231,9 @@ switch ($schedule) {
 
         $date_created = strtotime(date("d-m-Y", $start_date) . " " . $send_hour . ":" . $send_minute);
 
-        $balance = vll_ledger_balance_for_user($conn, $user);
+        $balance = vll_ledger_balance_for_user($conn, $billing_user);
         if ($consumed <= $balance) {
-            if (queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $consumed, $now)) {
+            if (queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $billing_user_id, $consumed, $now)) {
                 header("location:compose.php?r=" . urlencode($sent_ok_msg));
             } else {
                 header("location:compose.php?r=Failed to queue message(s). Please retry.");
@@ -195,19 +258,18 @@ switch ($schedule) {
             $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
             $next_date =  strtotime("+1 days", $next_date);
         }
-        $balance = vll_ledger_balance_for_user($conn, $user);
+        $balance = vll_ledger_balance_for_user($conn, $billing_user);
         if ($consumed <= $balance) {
+            $run_dates = array();
             $next_date = $start_date;
             while ($next_date <= $end_date) {
-                $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
-           
-                if (!queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, 0, $now)) {
-                    header("location:compose.php?r=Failed to queue message(s). Please retry.");
-                    exit;
-                }
-                $next_date =  strtotime("+1 days", $next_date);
+                $run_dates[] = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
+                $next_date = strtotime("+1 days", $next_date);
             }
-            $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $user_id . "','" . $consumed . "','" . $now . "')");
+            if (!queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user_id, $run_dates, $consumed, $now)) {
+                header("location:compose.php?r=Failed to queue message(s) or deduct credits. Please retry.");
+                exit;
+            }
             header("location:compose.php?r=" . urlencode($sent_ok_msg));
         } else {
             header("location:compose.php?r=Insufficient Balance");
@@ -229,19 +291,18 @@ switch ($schedule) {
             $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
             $next_date =  strtotime("+1 weeks", $next_date);
         }
-        $balance = vll_ledger_balance_for_user($conn, $user);
+        $balance = vll_ledger_balance_for_user($conn, $billing_user);
         if ($consumed <= $balance) {
+            $run_dates = array();
             $next_date = $start_date;
             while ($next_date <= $end_date) {
-                $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
-           
-                if (!queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, 0, $now)) {
-                    header("location:compose.php?r=Failed to queue message(s). Please retry.");
-                    exit;
-                }
-                $next_date =  strtotime("+1 weeks", $next_date);
+                $run_dates[] = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
+                $next_date = strtotime("+1 weeks", $next_date);
             }
-            $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $user_id . "','" . $consumed . "','" . $now . "')");
+            if (!queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user_id, $run_dates, $consumed, $now)) {
+                header("location:compose.php?r=Failed to queue message(s) or deduct credits. Please retry.");
+                exit;
+            }
             header("location:compose.php?r=" . urlencode($sent_ok_msg));
         } else {
             header("location:compose.php?r=Insufficient Balance");
@@ -263,19 +324,18 @@ switch ($schedule) {
             $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
             $next_date =  strtotime("+1 months", $next_date);
         }
-        $balance = vll_ledger_balance_for_user($conn, $user);
+        $balance = vll_ledger_balance_for_user($conn, $billing_user);
         if ($consumed <= $balance) {
+            $run_dates = array();
             $next_date = $start_date;
             while ($next_date <= $end_date) {
-                $date_created = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
-           
-                if (!queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, 0, $now)) {
-                    header("location:compose.php?r=Failed to queue message(s). Please retry.");
-                    exit;
-                }
-                $next_date =  strtotime("+1 months", $next_date);
+                $run_dates[] = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
+                $next_date = strtotime("+1 months", $next_date);
             }
-            $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $user_id . "','" . $consumed . "','" . $now . "')");
+            if (!queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user_id, $run_dates, $consumed, $now)) {
+                header("location:compose.php?r=Failed to queue message(s) or deduct credits. Please retry.");
+                exit;
+            }
             header("location:compose.php?r=" . urlencode($sent_ok_msg));
         } else {
             header("location:compose.php?r=Insufficient Balance");
