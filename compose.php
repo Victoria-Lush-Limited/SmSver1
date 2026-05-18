@@ -16,6 +16,16 @@ if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
     }
 }
 
+include_once __DIR__ . '/inc/ledger_balance.php';
+$compose_billing_user = $user;
+$compose_sender_for_balance = '';
+$qs0 = mysqli_query($conn, "SELECT sender_id FROM senders WHERE user_id='" . mysqli_real_escape_string($conn, (string) $_SESSION['user_id']) . "' AND id_status='Active' ORDER BY sender_id ASC LIMIT 1");
+if ($qs0 && mysqli_num_rows($qs0) > 0) {
+    $sr0 = mysqli_fetch_assoc($qs0);
+    $compose_sender_for_balance = (string) ($sr0['sender_id'] ?? '');
+    $compose_billing_user = vll_ledger_billing_user_row($conn, $user, $compose_sender_for_balance);
+}
+
 $from_date = strtotime(date("d-m-Y", time()));
 $to_date = time();
 

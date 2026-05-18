@@ -70,7 +70,6 @@ $sender_id = mysqli_real_escape_string($conn, $sender_raw);
 
 $user_id = $user['user_id'];
 $billing_user = vll_ledger_billing_user_row($conn, $user, $sender_raw);
-$billing_user_id = mysqli_real_escape_string($conn, vll_ledger_billing_user_id_for_row($conn, $billing_user));
 $sms_status = "Pending";
 
 
@@ -125,8 +124,9 @@ function queue_outgoing_batch($conn, $recipient_list, $sender_id, $message, $cre
     return $queued;
 }
 
-function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $billing_user_id, $consumed, $now)
+function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $billing_user, $consumed, $now)
 {
+    $billing_user_id = is_array($billing_user) ? vll_ledger_billing_user_id_for_row($conn, $billing_user) : '';
     $lockToken = "vllsmsq_" . md5($user_id . '|' . $billing_user_id);
     $gotLock = false;
     $lr = mysqli_query($conn, "SELECT GET_LOCK('" . $lockToken . "', 50) AS gl");
@@ -146,9 +146,8 @@ function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message,
         }
 
         if ($consumed > 0) {
-            $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $billing_user_id . "','" . (int) $consumed . "','" . (int) $now . "')");
-            if (!$q) {
-                throw new Exception(mysqli_error($conn));
+            if (!vll_ledger_record_consumed($conn, $billing_user, $consumed, $now)) {
+                throw new Exception('Failed to record consumed credits');
             }
         }
 
@@ -164,12 +163,13 @@ function queue_messages_and_charge($conn, $recipient_list, $sender_id, $message,
     return $ok;
 }
 
-function queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user_id, $run_dates, $consumed, $now)
+function queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user, $run_dates, $consumed, $now)
 {
     if (!is_array($run_dates) || count($run_dates) < 1) {
         return false;
     }
 
+    $billing_user_id = is_array($billing_user) ? vll_ledger_billing_user_id_for_row($conn, $billing_user) : '';
     $lockToken = "vllsmssch_" . md5($user_id . '|' . $billing_user_id);
     $gotLock = false;
     $lr = mysqli_query($conn, "SELECT GET_LOCK('" . $lockToken . "', 50) AS gl");
@@ -203,9 +203,8 @@ function queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $me
             throw new Exception("No valid recipients were queued for schedule");
         }
         if ((int) $consumed > 0) {
-            $q = mysqli_query($conn, "INSERT INTO transactions(user_id,consumed,tdate) VALUES('" . $billing_user_id . "','" . (int) $consumed . "','" . (int) $now . "')");
-            if (!$q) {
-                throw new Exception(mysqli_error($conn));
+            if (!vll_ledger_record_consumed($conn, $billing_user, $consumed, $now)) {
+                throw new Exception('Failed to record consumed credits');
             }
         }
         mysqli_commit($conn);
@@ -233,7 +232,7 @@ switch ($schedule) {
 
         $balance = vll_ledger_balance_for_user($conn, $billing_user);
         if ($consumed <= $balance) {
-            if (queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $billing_user_id, $consumed, $now)) {
+            if (queue_messages_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $date_created, $sms_status, $user_id, $billing_user, $consumed, $now)) {
                 header("location:compose.php?r=" . urlencode($sent_ok_msg));
             } else {
                 header("location:compose.php?r=Failed to queue message(s). Please retry.");
@@ -266,7 +265,7 @@ switch ($schedule) {
                 $run_dates[] = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
                 $next_date = strtotime("+1 days", $next_date);
             }
-            if (!queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user_id, $run_dates, $consumed, $now)) {
+            if (!queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user, $run_dates, $consumed, $now)) {
                 header("location:compose.php?r=Failed to queue message(s) or deduct credits. Please retry.");
                 exit;
             }
@@ -299,7 +298,7 @@ switch ($schedule) {
                 $run_dates[] = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
                 $next_date = strtotime("+1 weeks", $next_date);
             }
-            if (!queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user_id, $run_dates, $consumed, $now)) {
+            if (!queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user, $run_dates, $consumed, $now)) {
                 header("location:compose.php?r=Failed to queue message(s) or deduct credits. Please retry.");
                 exit;
             }
@@ -332,7 +331,7 @@ switch ($schedule) {
                 $run_dates[] = strtotime(date("d-m-Y", $next_date) . " " . $send_hour . ":" . $send_minute);
                 $next_date = strtotime("+1 months", $next_date);
             }
-            if (!queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user_id, $run_dates, $consumed, $now)) {
+            if (!queue_scheduled_runs_and_charge($conn, $recipient_list, $sender_id, $message, $credits, $schedule, $start_date, $end_date, $sms_status, $user_id, $billing_user, $run_dates, $consumed, $now)) {
                 header("location:compose.php?r=Failed to queue message(s) or deduct credits. Please retry.");
                 exit;
             }

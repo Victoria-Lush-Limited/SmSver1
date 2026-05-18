@@ -136,20 +136,24 @@ function vll_ledger_billing_user_row($conn, $sessionUserRow, $senderIdRaw = '')
     if (!$q) {
         return $sessionUserRow;
     }
-    $ownerId = '';
+    $privateRows = array();
     while ($s = mysqli_fetch_assoc($q)) {
         $candidate = trim((string) ($s['user_id'] ?? ''));
         $type = strtolower(trim((string) ($s['id_type'] ?? '')));
         if ($candidate === '' || $type === 'public' || $type === 'global') {
             continue;
         }
-        if ($sessionUid !== '' && $candidate === $sessionUid) {
-            return $sessionUserRow;
-        }
-        if ($ownerId === '') {
-            $ownerId = $candidate;
+        $privateRows[] = $candidate;
+    }
+    // Prefer the session user's own private sender row (duplicate sender_id rows exist for some clients).
+    if ($sessionUid !== '') {
+        foreach ($privateRows as $candidate) {
+            if ($candidate === $sessionUid) {
+                return $sessionUserRow;
+            }
         }
     }
+    $ownerId = count($privateRows) > 0 ? $privateRows[0] : '';
     if ($ownerId === '' || $ownerId === $sessionUid) {
         return $sessionUserRow;
     }

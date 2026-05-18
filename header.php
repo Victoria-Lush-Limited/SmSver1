@@ -1,6 +1,10 @@
 <?php
     include_once __DIR__ . '/inc/ledger_balance.php';
-    $sms_balance = vll_ledger_balance_for_user($conn, isset($user) ? $user : null);
+    $header_billing_user = isset($user) ? $user : null;
+    if (isset($compose_billing_user) && is_array($compose_billing_user)) {
+        $header_billing_user = $compose_billing_user;
+    }
+    $sms_balance = vll_ledger_balance_for_user($conn, $header_billing_user);
 ?>
 
 <header>
